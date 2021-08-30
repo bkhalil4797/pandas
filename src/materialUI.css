@@ -1,0 +1,22 @@
+.MuiSvgIcon-root {
+  font-size: 20px !important;
+}
+.MuiButton-textPrimary {
+  color: #00adb5 !important;
+}
+.MuiFormLabel-root.Mui-focused {
+  color: #00adb5 !important;
+}
+.MuiInput-underline:after {
+  border-bottom: 2px solid #00adb5 !important;
+}
+
+.MuiPaper-root .MuiButton-root {
+  color: #222831;
+}
+.MuiButton-outlined {
+  border: 1px solid #393e46 !important;
+}
+.MuiTypography-colorTextSecondary {
+  color: #393e46 !important;
+}

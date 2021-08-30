@@ -1,13 +1,117 @@
-body {
+p,
+h1,
+a {
+  color: #222831;
+  padding: 0;
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+}
+.app__container {
+  margin-left: 50px;
+  margin-top: 20px;
 }
 
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+.navbar {
+  margin-bottom: 30px;
+}
+
+.navbar a {
+  color: #00adb5;
+}
+
+.navbar p {
+  color: #393e46;
+}
+
+.micOn {
+  font-size: 26px !important;
+  color: #00adb5 !important;
+}
+.micOff {
+  padding: 3px;
+}
+.container {
+  display: flex;
+  margin: auto;
+  justify-content: space-between;
+  max-width: 800px;
+  margin: 0;
+}
+.popover {
+  width: 250px;
+  justify-content: center;
+  align-items: center;
+  padding: 15px 0px;
+  flex-wrap: wrap;
+}
+.popover > * {
+  margin: 10px !important;
+  color: #00adb5 !important;
+  border: 1px solid #00adb5 !important;
+}
+.popover > .MuiButton-outlined {
+  border: 1px solid #00adb5 !important;
+}
+.modal__Container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal__visible {
+  background-color: #fefefe;
+  padding: 20px;
+  border: 2px solid #343a40;
+  border-radius: 10px;
+  width: 800px;
+  height: 600px;
+}
+.modifymodel__main {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  width: 100%;
+}
+.modifymodel__main > div {
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+}
+.modifymodel__main > div > * {
+  margin-left: 20px;
+}
+.modifymodel__words {
+  display: flex;
+  width: 600px;
+  margin: auto;
+  height: 380px;
+  padding: 10px;
+  align-items: flex-start !important;
+}
+.modifymodel__words > div {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: scroll;
+  scrollbar-width: thin;
+  padding: 10px;
+  border-left: 2px solid #343a40;
+  animation: fadeIn 1s ease-out;
+  margin-right: 10px;
+  height: 100%;
+}
+.modifymodel__words > div > div {
+  margin-bottom: 5px;
+  display: flex;
+}
+.modifymodel__footer {
+  bottom: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 20px;
+  width: 100%;
+}
+.modifymodel__footer > * {
+  margin-left: 20px !important;
 }
