@@ -11,7 +11,6 @@ export const Mic = ({ id = "" }) => {
     activeRecognizer,
     setActiveRecognizer,
     recognizer,
-    savedModelList,
     cachedModel,
     setCachedModel,
     setOpenDialog,
