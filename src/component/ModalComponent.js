@@ -14,7 +14,7 @@ import DeleteForeverIcon from "@material-ui/icons/DeleteForever";
 import SaveIcon from "@material-ui/icons/Save";
 import CancelOutlinedIcon from "@material-ui/icons/CancelOutlined";
 
-const epochs = 100;
+const epochs = 50;
 export const ModalComponent = () => {
   const {
     selectedModel,

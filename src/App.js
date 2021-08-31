@@ -4,6 +4,7 @@ import {
   Switch,
   Redirect,
 } from "react-router-dom";
+import { ActionListner } from "./component/ActionListner";
 import { Mic } from "./component/Mic";
 import { Navigation } from "./component/Navigation";
 import { ContextProvider } from "./context";
@@ -15,7 +16,9 @@ function App() {
     <ContextProvider>
       <Router>
         <div className="app__container">
+          <ActionListner />
           <Navigation />
+
           <Switch>
             <Route exact path="/">
               <h1>Home</h1>

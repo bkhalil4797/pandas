@@ -37,6 +37,7 @@ export const ContextProvider = ({ children }) => {
   const [openDialog, setOpenDialog] = useState(false);
   const [micId, setMicId] = useState("");
   const [selectDialog, setSelectDialog] = useState("null");
+  const [recResult, setRecResult] = useState("");
 
   const loadRecognizer = async () => {
     let recognizer = SpeechCommands.create("BROWSER_FFT");
@@ -101,6 +102,8 @@ export const ContextProvider = ({ children }) => {
     micId,
     setMicId,
     setSelectDialog,
+    recResult,
+    setRecResult,
   };
 
   return (

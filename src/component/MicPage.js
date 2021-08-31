@@ -1,10 +1,9 @@
 import MicOffIcon from "@material-ui/icons/MicOff";
 import MicIcon from "@material-ui/icons/Mic";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useContextProvider } from "../context";
-import { TextField } from "@material-ui/core";
 
-export const Mic = ({ id = "default" }) => {
+export const MicPage = ({ id = "default" }) => {
   const {
     isListening,
     setIsListening,
@@ -17,10 +16,10 @@ export const Mic = ({ id = "default" }) => {
     setOpenDialog,
     setMicId,
     setAlert,
+    setRecResult,
   } = useContextProvider();
   const [open, setOpen] = useState(false);
   const [model, setModel] = useState(() => localStorage.getItem(id));
-  const myInput = useRef();
 
   useEffect(() => {
     setModel(localStorage.getItem(id));
@@ -79,7 +78,7 @@ export const Mic = ({ id = "default" }) => {
             }));
             scores.sort((s1, s2) => s2.score - s1.score);
             console.log(`1:${scores[0]?.word}`);
-            myInput.current.lastChild.lastChild.value = `${myInput.current.lastChild.lastChild.value} ${scores[0]?.word}`;
+            setRecResult(scores[0]?.word);
           },
           {
             includeSpectrogram: true,
@@ -122,15 +121,12 @@ export const Mic = ({ id = "default" }) => {
   };
   return (
     <>
-      <div style={{ display: "flex", alignItems: "center" }}>
-        <div onClick={handleClick}>
-          {open ? (
-            <MicIcon className="micOn" />
-          ) : (
-            <MicOffIcon className="micOff" />
-          )}
-        </div>
-        <TextField ref={myInput} />
+      <div onClick={handleClick}>
+        {open ? (
+          <MicIcon className="micOn" />
+        ) : (
+          <MicOffIcon className="micOff" />
+        )}
       </div>
     </>
   );
