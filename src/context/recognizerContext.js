@@ -45,21 +45,21 @@ export const RecognizerContextProvider = ({ children }) => {
           models.substring(0, models.length - 5) ===
           model.substring(0, models.length - 5)
       )[0];
-      return updatedModel;
+      return updatedModel[0];
     }
     return model;
   };
 
   //helper fct
   const loadModel = async (model) => {
+    if (!savedModelList.includes(model)) {
+      throw new Error("Le model n'existe pas");
+    }
     if (recognizer === undefined) {
       throw new Error("recognizer not loaded yet");
     }
     if (activeRecognizer.isListening()) {
       await activeRecognizer.stopListening(); // Promise<void>;
-    }
-    if (!savedModelList.includes(model)) {
-      throw new Error("Le model n'existe pas");
     }
     const isUsed = cachedModel.filter((obj) => obj.name === model);
     let transfRec;
@@ -68,9 +68,9 @@ export const RecognizerContextProvider = ({ children }) => {
     } else {
       transfRec = recognizer.createTransfer(model);
       await transfRec.load(); // Promise<void>;
+      setCachedModel([...cachedModel, { name: model, model: transfRec }]);
     }
     setActiveRecognizer(transfRec);
-    setCachedModel([...cachedModel, { name: model, model: transfRec }]);
     return transfRec;
   };
 
@@ -141,6 +141,7 @@ export const RecognizerContextProvider = ({ children }) => {
     oneRecognize,
     stopRecognize,
     updateModelName,
+    loadSavedModels,
   };
 
   return (
