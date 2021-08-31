@@ -199,6 +199,7 @@ export const ModalComponent = () => {
           if (err) {
             console.log(err);
           }
+          console.log(`${word} loaded`);
           transfRec.loadExamples(value, false);
         });
       }

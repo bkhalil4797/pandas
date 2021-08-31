@@ -27,7 +27,7 @@ a {
   color: #00adb5 !important;
 }
 .micOff {
-  padding: 3px;
+  padding: 3px !important;
 }
 .container {
   display: flex;

@@ -5,7 +5,17 @@ import * as tf from "@tensorflow/tfjs";
 import * as SpeechCommands from "@tensorflow-models/speech-commands";
 
 import MuiAlert from "@material-ui/lab/Alert";
-import { Snackbar } from "@material-ui/core";
+import {
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
+  MenuItem,
+  Select,
+  Snackbar,
+} from "@material-ui/core";
 import { ModalComponent } from "../component/ModalComponent";
 
 const Context = createContext();
@@ -24,6 +34,9 @@ export const ContextProvider = ({ children }) => {
     severity: "error",
     msg: "",
   });
+  const [openDialog, setOpenDialog] = useState(false);
+  const [micId, setMicId] = useState("");
+  const [selectDialog, setSelectDialog] = useState("null");
 
   const loadRecognizer = async () => {
     let recognizer = SpeechCommands.create("BROWSER_FFT");
@@ -35,6 +48,25 @@ export const ContextProvider = ({ children }) => {
   const loadSavedModels = async () => {
     const savedModelKeys = await SpeechCommands.listSavedTransferModels();
     setSavedModelList(savedModelKeys);
+  };
+
+  const closeDialog = () => {
+    setOpenDialog(false);
+    setMicId("");
+    setSelectDialog("null");
+  };
+  const confirmDialog = () => {
+    console.log(selectDialog);
+    if (selectDialog === "null" || selectDialog === null) {
+      setAlert({
+        open: true,
+        severity: "warning",
+        msg: "veuillez selectionnez un modele",
+      });
+    } else {
+      localStorage.setItem(micId, selectDialog);
+      closeDialog();
+    }
   };
 
   useEffect(() => {
@@ -64,6 +96,11 @@ export const ContextProvider = ({ children }) => {
     setOpenModal,
     setSelectedModel,
     selectedModel,
+    openDialog,
+    setOpenDialog,
+    micId,
+    setMicId,
+    setSelectDialog,
   };
 
   return (
@@ -91,6 +128,48 @@ export const ContextProvider = ({ children }) => {
       {/*        Partie modal pour modifier un modele         */}
       {/* --------------------------------------------------- */}
       {recognizer !== undefined && openModal && <ModalComponent />}
+
+      {/* --------------------------------------------------- */}
+      {/*        Partie modal pour modifier un modele         */}
+      {/* --------------------------------------------------- */}
+      {openDialog && (
+        <Dialog
+          open={openDialog}
+          onClose={closeDialog}
+          aria-labelledby="form-dialog-title"
+        >
+          <DialogTitle>Creation d'un modele</DialogTitle>
+          <DialogContent>
+            <DialogContentText>
+              Veuillez choisir un modele l'imnput "{micId}"
+            </DialogContentText>
+            <Select
+              fullWidth
+              displayEmpty
+              defaultValue="null"
+              value={selectDialog}
+              onChange={(e) => setSelectDialog(e.target.value)}
+            >
+              <MenuItem value="null">
+                <em>None</em>
+              </MenuItem>
+              {savedModelList.map((model) => (
+                <MenuItem value={model} key={model}>
+                  {model.substring(0, model.length - 5)}
+                </MenuItem>
+              ))}
+            </Select>
+          </DialogContent>
+          <DialogActions>
+            <Button color="primary" onClick={closeDialog}>
+              Annuler
+            </Button>
+            <Button color="primary" onClick={confirmDialog}>
+              valider
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
     </Context.Provider>
   );
 };
