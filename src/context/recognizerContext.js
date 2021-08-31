@@ -52,6 +52,12 @@ export const RecognizerContextProvider = ({ children }) => {
 
   //helper fct
   const loadModel = async (model) => {
+    if (recognizer === undefined) {
+      throw new Error("recognizer not loaded yet");
+    }
+    if (activeRecognizer.isListening()) {
+      await activeRecognizer.stopListening(); // Promise<void>;
+    }
     if (!savedModelList.includes(model)) {
       throw new Error("Le model n'existe pas");
     }
@@ -82,12 +88,6 @@ export const RecognizerContextProvider = ({ children }) => {
     if (duree <= 0) {
       throw new Error("bad value for duree");
     }
-    if (recognizer === undefined) {
-      throw new Error("recognizer not loaded yet");
-    }
-    if (activeRecognizer.isListening()) {
-      await activeRecognizer.stopListening(); // Promise<void>;
-    }
     const transfRec = loadModel(model);
     transfRec.listen(
       ({ scores }) => {
@@ -115,12 +115,6 @@ export const RecognizerContextProvider = ({ children }) => {
 
   // return an ordred array of recognized word
   const oneRecognize = async (model, overlap = 0.5) => {
-    if (recognizer === undefined) {
-      throw new Error("recognizer not loaded yet");
-    }
-    if (activeRecognizer.isListening()) {
-      await activeRecognizer.stopListening(); // Promise<void>;
-    }
     const transfRec = loadModel(model);
     transfRec.listen(
       ({ scores }) => {
