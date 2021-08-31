@@ -2,16 +2,18 @@ import { useEffect } from "react";
 
 export const Settings = () => {
   useEffect(() => {
+    const voices = speechSynthesis.getVoices();
+    console.log(voices);
     let msg = new SpeechSynthesisUtterance(
       "Vous étes sur la page des parametres"
     );
-    const voices = speechSynthesis.getVoices();
+    console.log(msg);
+    msg.rate = 1.1;
     msg.voice = voices[9];
     window.speechSynthesis.speak(msg);
-    msg = new SpeechSynthesisUtterance("Merci d'avoir utilisé notre service");
-    msg.voice = voices[9];
+
+    msg.text = "Merci d'avoir utilisé notre service";
     window.speechSynthesis.speak(msg);
-    console.log(window.speechSynthesis.getVoices());
   }, []);
   return (
     <>
