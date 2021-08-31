@@ -115,6 +115,9 @@ export const RecognizerContextProvider = ({ children }) => {
 
   // return an ordred array of recognized word
   const oneRecognize = (model, overlap = 0.5) => {
+    // pour framesize elle est calculer comme montrer ci dessous
+    // frameSize = (1 - overlap ) * 1000
+    // donc overlap = frameSize/1000 - 1
     const transfRec = loadModel(model);
     transfRec.listen(
       ({ scores }) => {
