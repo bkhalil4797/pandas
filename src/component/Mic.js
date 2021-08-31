@@ -13,6 +13,7 @@ export const Mic = ({ id = "" }) => {
     recognizer,
     cachedModel,
     setCachedModel,
+    savedModelList,
     setOpenDialog,
     setMicId,
     setAlert,
@@ -26,6 +27,7 @@ export const Mic = ({ id = "" }) => {
   }, [id, model]);
 
   const handleClick = async () => {
+    let model = localStorage.getItem(id);
     if (recognizer === undefined) {
       setAlert({
         open: true,
@@ -42,6 +44,13 @@ export const Mic = ({ id = "" }) => {
       } else {
         setModel(localStorage.getItem(id));
       }
+    }
+    if (!savedModelList.includes(model)) {
+      model = savedModelList.filter(
+        (models) =>
+          models.substring(0, models.length - 5) ===
+          model.substring(0, models.length - 5)
+      )[0];
     }
     if (!isListening && !open) {
       console.log("start mic");
