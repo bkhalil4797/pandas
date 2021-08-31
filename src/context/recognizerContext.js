@@ -81,7 +81,7 @@ export const RecognizerContextProvider = ({ children }) => {
   };
 
   // return in recognizerResult state
-  const startRecognize = async (model, duree, overlap = 0.5) => {
+  const startRecognize = (model, duree, overlap = 0.5) => {
     if (overlap > 1 || overlap < 0) {
       throw new Error("bad value for overlap");
     }
@@ -114,7 +114,7 @@ export const RecognizerContextProvider = ({ children }) => {
   };
 
   // return an ordred array of recognized word
-  const oneRecognize = async (model, overlap = 0.5) => {
+  const oneRecognize = (model, overlap = 0.5) => {
     const transfRec = loadModel(model);
     transfRec.listen(
       ({ scores }) => {
