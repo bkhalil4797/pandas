@@ -70,9 +70,9 @@ export const Mic = ({ id = "default" }) => {
           setCachedModel([...cachedModel, { name: model, model: transfRec }]);
           console.log(`Model "${model}" loaded from indexedDb`);
         }
-        const words = transfRec.wordLabels();
         transfRec.listen(
           ({ scores }) => {
+            const words = transfRec.wordLabels();
             scores = Array.from(scores).map((s, i) => ({
               score: s,
               word: words[i],

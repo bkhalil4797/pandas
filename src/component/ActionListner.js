@@ -43,7 +43,6 @@ export const ActionListner = () => {
     <div style={{ display: "flex", alignItems: "center" }}>
       <MicPage id="global" />
       <p style={{ marginLeft: "20px" }}>
-        {" "}
         "actions" : {print === "" ? "aucune" : print}
       </p>
     </div>
