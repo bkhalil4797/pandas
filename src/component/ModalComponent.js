@@ -122,8 +122,7 @@ export const ModalComponent = () => {
         msg: "Le mot doit en moins contenir une lettre",
       });
       return;
-    }
-    if (words.includes(myWord)) {
+    } else if (words.includes(myWord)) {
       setAlert({
         open: true,
         severity: "warning",
@@ -131,8 +130,7 @@ export const ModalComponent = () => {
       });
       setAddWord("");
       return;
-    }
-    if (savedWords.includes(myWord)) {
+    } else if (savedWords.includes(myWord)) {
       await localforage.getItem(myWord, (err, value) => {
         if (err) {
           console.log(err);
@@ -327,7 +325,7 @@ export const ModalComponent = () => {
     setWords([...words, savedWord]);
     setCountExamples(await currentRecognizer.countExamples());
   };
-
+  // BUGGG HEREEEEEEEE
   const handleDeleteWord = async (selectedWord) => {
     if (!modify) {
       return;

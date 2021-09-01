@@ -133,7 +133,7 @@ export const ContextProvider = ({ children }) => {
       {recognizer !== undefined && openModal && <ModalComponent />}
 
       {/* --------------------------------------------------- */}
-      {/*        Partie modal pour modifier un modele         */}
+      {/*        Partie mettre un model pour un mic           */}
       {/* --------------------------------------------------- */}
       {openDialog && (
         <Dialog
