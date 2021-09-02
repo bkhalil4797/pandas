@@ -344,7 +344,10 @@ export const ModalComponent = () => {
       console.log(err);
     }
     setWords(words.filter((word) => word !== selectedWord));
-    setSavedWords([...savedWords, selectedWord]);
+    const allSavedWord = await SpeechCommands.listSavedTransferModels();
+    if (allSavedWord.includes(selectedWord)) {
+      setSavedWords([...savedWords, selectedWord]);
+    }
   };
 
   const handleAddWord = async (selectedWord) => {
