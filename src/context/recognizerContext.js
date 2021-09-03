@@ -17,14 +17,6 @@ const RecognizerContext = createContext();
 export const useRecognizer = () => useContext(RecognizerContext);
 
 export const RecognizerContextProvider = ({ children }) => {
-  useEffect(() => {
-    localforage.config({
-      driver: localforage.INDEXEDDB,
-      name: "SpeechCommand",
-      storeName: "SavedWords",
-      description: "Speech Command Serialized Exemples",
-    });
-  }, []);
   const [recognizer, setRecognizer] = useState();
   const [activeRecognizer, setActiveRecognizer] = useState();
   const [savedModelList, setSavedModelList] = useState([]);
@@ -93,19 +85,19 @@ export const RecognizerContextProvider = ({ children }) => {
 
   const stopRecognize = async () => {
     if (activeRecognizer && activeRecognizer.isListening()) {
-      activeRecognizer.stopListening();
+      await activeRecognizer.stopListening();
     }
   };
 
   // return in recognizerResult state
-  const startRecognize = (model, duree, overlap = 0.5) => {
+  const startRecognize = async (model, duree, overlap = 0.5) => {
     if (overlap > 1 || overlap < 0) {
       throw new Error("bad value for overlap");
     }
     if (duree <= 0) {
       throw new Error("bad value for duree");
     }
-    const transfRec = loadModel(model);
+    const transfRec = await loadModel(model);
     transfRec.listen(
       ({ scores }) => {
         const words = transfRec.wordLabels();
@@ -131,11 +123,11 @@ export const RecognizerContextProvider = ({ children }) => {
   };
 
   // return an ordred array of recognized word
-  const oneRecognize = (model, overlap = 0.5) => {
+  const oneRecognize = async (model, overlap = 0.5) => {
     // pour framesize elle est calculer comme montrer ci dessous
     // frameSize = (1 - overlap ) * 1000
     // donc overlap = 1 - frameSize/1000
-    const transfRec = loadModel(model);
+    const transfRec = await loadModel(model);
     transfRec.listen(
       ({ scores }) => {
         const words = transfRec.wordLabels();
@@ -444,6 +436,7 @@ export const RecognizerContextProvider = ({ children }) => {
     savedModelList,
     createModel,
     modifyModel,
+    recognizerResult,
   };
 
   return (
