@@ -3,11 +3,28 @@ import localforage from "localforage";
 // eslint-disable-next-line no-unused-vars
 import * as tf from "@tensorflow/tfjs";
 import * as SpeechCommands from "@tensorflow-models/speech-commands";
+import { Button, Modal, TextField } from "@material-ui/core";
+import LockIcon from "@material-ui/icons/Lock";
+import LockOpenIcon from "@material-ui/icons/LockOpen";
+import AddCircleOutlineOutlinedIcon from "@material-ui/icons/AddCircleOutlineOutlined";
+import HighlightOffIcon from "@material-ui/icons/HighlightOff";
+import AssignmentTurnedInOutlinedIcon from "@material-ui/icons/AssignmentTurnedInOutlined";
+import DeleteForeverIcon from "@material-ui/icons/DeleteForever";
+import SaveIcon from "@material-ui/icons/Save";
+import CancelOutlinedIcon from "@material-ui/icons/CancelOutlined";
 
 const RecognizerContext = createContext();
 export const useRecognizer = () => useContext(RecognizerContext);
 
 export const RecognizerContextProvider = ({ children }) => {
+  useEffect(() => {
+    localforage.config({
+      driver: localforage.INDEXEDDB,
+      name: "SpeechCommand",
+      storeName: "SavedWords",
+      description: "Speech Command Serialized Exemples",
+    });
+  }, []);
   const [recognizer, setRecognizer] = useState();
   const [activeRecognizer, setActiveRecognizer] = useState();
   const [savedModelList, setSavedModelList] = useState([]);
@@ -58,7 +75,7 @@ export const RecognizerContextProvider = ({ children }) => {
     if (recognizer === undefined) {
       throw new Error("recognizer not loaded yet");
     }
-    if (activeRecognizer.isListening()) {
+    if (activeRecognizer && activeRecognizer.isListening()) {
       await activeRecognizer.stopListening(); // Promise<void>;
     }
     const isUsed = cachedModel.filter((obj) => obj.name === model);
@@ -75,7 +92,7 @@ export const RecognizerContextProvider = ({ children }) => {
   };
 
   const stopRecognize = async () => {
-    if (activeRecognizer.isListening()) {
+    if (activeRecognizer && activeRecognizer.isListening()) {
       activeRecognizer.stopListening();
     }
   };
@@ -143,11 +160,15 @@ export const RecognizerContextProvider = ({ children }) => {
   /*------------------Partie Manipulation de modele-------------------*/
   /*------------------------------------------------------------------*/
 
+  const [newWord, setNewWord] = useState("");
   const [words, setWords] = useState([]);
   const [savedWords, setSavedWords] = useState([]);
   const [unusedSavedWords, setUnusedSavedWords] = useState([]);
   const [countExamples, setCountExamples] = useState([]);
   const [canModify, setCanModify] = useState(false);
+
+  const [modelName, setModelName] = useState("");
+  const [openModal, setOpenModal] = useState(false);
 
   const epochs = 50;
 
@@ -155,15 +176,17 @@ export const RecognizerContextProvider = ({ children }) => {
     if (recognizer === undefined) {
       throw new Error("recognizer not loaded yet");
     }
-    if (activeRecognizer.isListening()) {
+    if (activeRecognizer && activeRecognizer.isListening()) {
       await activeRecognizer.stopListening(); // Promise<void>;
     }
     // remet les state par defaut
     savedModelList.includes(model) ? setCanModify(false) : setCanModify(true);
     setWords([]);
+    setNewWord("");
     setCountExamples([]);
     const savedWords = await localforage.keys();
     setSavedWords(savedWords);
+    setUnusedSavedWords(savedWords);
 
     const isUsed = cachedModel.filter((obj) => obj.name === model);
     let transfRec;
@@ -183,6 +206,7 @@ export const RecognizerContextProvider = ({ children }) => {
     } else if (savedModelList.includes(model)) {
       transfRec = recognizer.createTransfer(model);
       await transfRec.load();
+
       setCachedModel([...cachedModel, { name: model, model: transfRec }]);
       const words = await transfRec.wordLabels();
       setWords(words);
@@ -190,17 +214,20 @@ export const RecognizerContextProvider = ({ children }) => {
     } else {
       transfRec = recognizer.createTransfer(model);
       setCachedModel([...cachedModel, { name: model, model: transfRec }]);
+      setUnusedSavedWords(savedWords);
     }
     setActiveRecognizer(transfRec);
+    console.log("end model");
     return transfRec;
   };
 
   // ajouter un mot au model
-  const addWord = async (word) => {
+  const addWord = async () => {
     if (!canModify) {
       return;
     }
-    word = word.trim().toLowerCase();
+    const word = newWord.trim().toLowerCase();
+    setNewWord("");
     if (word.length === 0) {
       throw new Error("a word can't be empty string");
     } else if (words.includes(word)) {
@@ -225,6 +252,7 @@ export const RecognizerContextProvider = ({ children }) => {
     if (!canModify) {
       return;
     }
+
     try {
       const datasetOfWord = activeRecognizer.getExamples(word);
       for (let index in datasetOfWord) {
@@ -267,19 +295,25 @@ export const RecognizerContextProvider = ({ children }) => {
     setCountExamples(await activeRecognizer.countExamples());
   };
 
-  const modifyModel = async (model) => {
+  const enableModify = async () => {
     if (canModify) {
       return;
     }
-    let version = Number(model.substring(model.length - 3, model.length));
+    let version = Number(
+      modelName.substring(modelName.length - 3, modelName.length)
+    );
     version = version + 1;
     version = String(version);
     for (let i = version.length; i < 3; i++) {
       version = "0" + version;
     }
-    const newModelName = `${model.substring(0, model.length - 5)} v${version}`;
+    const newModelName = `${modelName.substring(
+      0,
+      modelName.length - 5
+    )} v${version}`;
     const wordsList = words;
-    const transfRec = initialLoad(newModelName);
+    setModelName(newModelName);
+    const transfRec = await initialLoad(newModelName);
     setUnusedSavedWords(
       unusedSavedWords.filter((w) => !wordsList.includes(words))
     );
@@ -292,29 +326,35 @@ export const RecognizerContextProvider = ({ children }) => {
         transfRec.loadExamples(value, false);
       });
     }
+    setWords(await transfRec.wordLabels());
     setCountExamples(await transfRec.countExamples());
   };
 
-  const deleteModel = async (model) => {
+  const deleteModel = async () => {
     if (!canModify) {
       return;
     }
-    if (savedModelList.includes(model)) {
+    if (savedModelList.includes(modelName)) {
       try {
-        await SpeechCommands.deleteSavedTransferModel(model);
+        await SpeechCommands.deleteSavedTransferModel(modelName);
       } catch (err) {
         console.log(err);
         console.log("Delete model error");
       }
     }
     // le cas l'utilisateur click sur modify pour ensuite essayer de supprimer le model
-    let version = Number(model.substring(model.length - 3, model.length));
+    let version = Number(
+      modelName.substring(modelName.length - 3, modelName.length)
+    );
     version = version - 1;
     version = String(version);
     for (let i = version.length; i < 3; i++) {
       version = "0" + version;
     }
-    const oldModelName = `${model.substring(0, model.length - 5)} v${version}`;
+    const oldModelName = `${modelName.substring(
+      0,
+      modelName.length - 5
+    )} v${version}`;
     if (savedModelList.includes(oldModelName)) {
       try {
         await SpeechCommands.deleteSavedTransferModel(oldModelName);
@@ -326,7 +366,7 @@ export const RecognizerContextProvider = ({ children }) => {
     loadSavedModels();
   };
 
-  const saveModel = async (model) => {
+  const saveModel = async () => {
     if (!canModify) {
       return;
     }
@@ -350,7 +390,9 @@ export const RecognizerContextProvider = ({ children }) => {
         localforage.setItem(word, serialized).then(console.log(`${word} done`));
       }
       // then if we modify a model we will delete the old since we have this now
-      let version = Number(model.substring(model.length - 3, model.length));
+      let version = Number(
+        modelName.substring(modelName.length - 3, modelName.length)
+      );
       if (version === 1) {
         return;
       } else {
@@ -359,9 +401,9 @@ export const RecognizerContextProvider = ({ children }) => {
         for (let i = version.length; i < 3; i++) {
           version = "0" + version;
         }
-        const oldModelName = `${model.substring(
+        const oldModelName = `${modelName.substring(
           0,
-          model.length - 5
+          modelName.length - 5
         )} v${version}`;
         deleteModel(oldModelName);
       }
@@ -370,26 +412,162 @@ export const RecognizerContextProvider = ({ children }) => {
     }
   };
 
+  const closeModal = () => {
+    setOpenModal(false);
+    setModelName("");
+    setCanModify(false);
+  };
+
+  const createModel = (name) => {
+    const formattedName = name.trim().toLowerCase();
+    const formatedSavedModel = savedModelList.map((model) =>
+      model.substring(0, model.length - 5)
+    );
+    if (formatedSavedModel.includes(formattedName.toLowerCase())) {
+      throw new Error("le modele est existant");
+    }
+    setModelName(`${formattedName} v001`);
+    setOpenModal(true);
+    initialLoad(`${formattedName} v001`);
+  };
+
+  const modifyModel = (name) => {
+    setOpenModal(true);
+    setModelName(name);
+    initialLoad(name);
+  };
+
   const value = {
     startRecognize,
     oneRecognize,
     stopRecognize,
-    updateModelName,
-    loadSavedModels,
-    loadModel,
-    initialLoad,
-    addWord,
-    removeWord,
-    collectExample,
-    tranfertWord,
+    savedModelList,
+    createModel,
     modifyModel,
-    deleteModel,
-    saveModel,
   };
 
   return (
     <RecognizerContext.Provider value={value}>
       {children}
+      <Modal
+        open={openModal}
+        onClose={() => closeModal()}
+        className="modal__Container"
+      >
+        <div className="modal__visible">
+          <div>
+            <h1>
+              Modele :
+              {`${modelName.substring(0, 1).toUpperCase()}${modelName.substring(
+                1,
+                modelName.length - 5
+              )}`}
+              {canModify ? <LockOpenIcon /> : <LockIcon />}
+            </h1>
+            <p>Version : {modelName}</p>
+          </div>
+
+          <div className="modifymodel__main">
+            <div>
+              <TextField
+                label="Ajouter un mot"
+                value={newWord}
+                onChange={(e) => setNewWord(e.target.value)}
+                disabled={!canModify}
+              />
+              <Button
+                variant="outlined"
+                disabled={!canModify}
+                onClick={addWord}
+              >
+                <AddCircleOutlineOutlinedIcon />
+                Ajouter
+              </Button>
+            </div>
+
+            <div className="modifymodel__words">
+              <div>
+                <p>Mot du modele</p>
+                {words.length > 0 ? (
+                  words.map((word) => (
+                    <div key={word}>
+                      <Button
+                        variant="outlined"
+                        onClick={() => collectExample(word)}
+                        disabled={!canModify}
+                      >
+                        {word} ({countExamples[word] ? countExamples[word] : 0})
+                      </Button>
+                      <Button
+                        onClick={() => removeWord(word)}
+                        disabled={!canModify}
+                      >
+                        <HighlightOffIcon />
+                      </Button>
+                    </div>
+                  ))
+                ) : (
+                  <p>Aucun mot existant</p>
+                )}
+              </div>
+              {canModify && (
+                <div>
+                  <p>Ajouter un mot déja utilisé</p>
+                  {unusedSavedWords.length > 0 ? (
+                    unusedSavedWords.map((word) => (
+                      <div key={word}>
+                        <Button
+                          variant="outlined"
+                          onClick={() => tranfertWord(word)}
+                        >
+                          {word}
+                        </Button>
+                      </div>
+                    ))
+                  ) : (
+                    <p>Aucun mot enregistrer</p>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="modifymodel__footer">
+            <Button
+              variant="outlined"
+              disabled={canModify}
+              onClick={enableModify}
+            >
+              <AssignmentTurnedInOutlinedIcon />
+              Modifier
+            </Button>
+            <Button
+              variant="outlined"
+              disabled={!canModify}
+              onClick={deleteModel}
+            >
+              <DeleteForeverIcon />
+              Supprimer
+            </Button>
+            <Button
+              variant="outlined"
+              disabled={!canModify}
+              onClick={saveModel}
+            >
+              <SaveIcon />
+              Enregistrer
+            </Button>
+            <Button
+              variant="outlined"
+              disabled={!canModify}
+              onClick={closeModal}
+            >
+              <CancelOutlinedIcon />
+              Fermer
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </RecognizerContext.Provider>
   );
 };

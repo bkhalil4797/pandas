@@ -1,5 +1,11 @@
 import { render } from "react-dom";
-import App from "./App";
+import { Test } from "./pages/Test";
 import "./index.css";
 import "./materialUI.css";
-render(<App />, document.getElementById("root"));
+import { RecognizerContextProvider } from "./context/recognizerContext";
+render(
+  <RecognizerContextProvider>
+    <Test />
+  </RecognizerContextProvider>,
+  document.getElementById("root")
+);
