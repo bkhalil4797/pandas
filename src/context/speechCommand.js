@@ -1,4 +1,10 @@
-import { createContext, useContext, useState, useEffect } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+} from "react";
 import localforage from "localforage";
 // eslint-disable-next-line no-unused-vars
 import * as tf from "@tensorflow/tfjs";
@@ -16,6 +22,10 @@ import CancelOutlinedIcon from "@material-ui/icons/CancelOutlined";
 const RecognizerContext = createContext();
 export const useRecognizer = () => useContext(RecognizerContext);
 
+const UNKNOWN_TAG = "_unknown_";
+const epochs = 50;
+const probabilityThreshold = 0.9;
+
 export const RecognizerContextProvider = ({ children }) => {
   const [recognizer, setRecognizer] = useState();
   const [savedModelList, setSavedModelList] = useState([]);
@@ -23,10 +33,14 @@ export const RecognizerContextProvider = ({ children }) => {
   const [savedWords, setSavedWords] = useState([]);
 
   const loadRecognizer = async () => {
-    let recognizer = SpeechCommands.create("BROWSER_FFT");
-    await recognizer.ensureModelLoaded();
-    setRecognizer(recognizer);
-    console.log(`Google Model Loaded`);
+    try {
+      let recognizer = SpeechCommands.create("BROWSER_FFT");
+      await recognizer.ensureModelLoaded();
+      setRecognizer(recognizer);
+      console.log(`Google Model Loaded`);
+    } catch (err) {
+      console.log("can't load google model", err);
+    }
   };
 
   const loadSavedModelsAndWords = async () => {
@@ -53,128 +67,44 @@ export const RecognizerContextProvider = ({ children }) => {
   const [modelWord, setModelWord] = useState([]);
   const [countExamples, setCountExamples] = useState([]);
   const [canModify, setCanModify] = useState(false);
-  const [recognizerResult, setRecognizerResult] = useState([]);
   const [openModal, setOpenModal] = useState(false);
-
+  const [recognizerResult, setRecognizerResult] = useState([]);
   const [inputWord, setInputWord] = useState("");
-  const epochs = 50;
 
-  const initialLoad = async (modelName) => {
-    if (modelName === "") {
-      return;
+  const [timer, setTimer] = useState(0);
+
+  const checkName = (modelName) => {
+    if (modelName.length < 3) {
+      console.log("modelName must be at least 3 character length");
+      return null;
     }
-    // if bad model name we correct it or if it doesn't exist we create it
-    // bad name mean incorrect version or the version is ommited
-    if (!savedModelList.includes(modelName)) {
-      const savedModelListWithoutVersion = savedModelList.map((w) =>
-        w.substring(0, modelName.length - 5)
-      );
-      // wrong version so we auto update version if we got the wrong version exemple like when we get an old version
-      // when the version is omitted we get it
-      if (savedModelListWithoutVersion.includes(modelName)) {
-        setModelName(
-          savedModelList.filter(
-            (models) => models.substring(0, models.length - 5) === modelName
-          )[0]
-        );
-        modelName = savedModelList.filter(
-          (models) => models.substring(0, models.length - 5) === modelName
-        )[0];
-        initialLoad(modelName);
-        return;
-      }
-      // we load the model since it exist in indexedDb
-      else {
-        let transfRec;
-        const newName = `${modelName} v001`;
-        const alreadyInCache = cachedModel.filter(
-          (model) => model.name === newName
-        );
-        if (alreadyInCache.length > 0) {
-          transfRec = alreadyInCache[0].model;
-          console.log("model created from cache");
-        } else {
-          transfRec = recognizer.createTransfer(newName);
-          setCachedModel([...cachedModel, { name: newName, model: transfRec }]);
-          console.log("model created from scratch");
-        }
-        setModelWord(["_background_noise_"]);
-        setUnusedSavedWords(savedWords);
-        setActiveRecognizer(transfRec);
-        setCanModify(true);
-        if (savedWords.includes("_background_noise_")) {
-          await localforage.getItem("_background_noise_", (err, value) => {
-            if (err) {
-              throw new Error("can't add the word");
-            }
-            transfRec.loadExamples(value, false);
-          });
-        }
-        return;
-      }
-    } // if the model is already saved
-    else {
-      let transfRec;
-      const alreadyInCache = cachedModel.filter(
-        (model) => model.name === modelName
-      );
-      if (alreadyInCache.length > 0) {
-        transfRec = alreadyInCache[0].model;
-        console.log("model loaded from cache");
-      } else {
-        transfRec = recognizer.createTransfer(modelName);
-        await transfRec.load();
-        setCachedModel([...cachedModel, { name: modelName, model: transfRec }]);
-        console.log("model loaded from indexedDb");
-      }
-      setActiveRecognizer(transfRec);
-      const words = await transfRec.wordLabels();
-      setModelWord(words);
-      setUnusedSavedWords(savedWords.filter((w) => !words.includes(w)));
-      setCanModify(false);
+    const addVersionToModelName = savedModelList.filter(
+      (models) => models.substring(0, models.length - 5) === modelName
+    );
+    if (addVersionToModelName.length > 0) {
+      return addVersionToModelName[0];
+    } else if (savedModelList.includes(modelName)) {
+      return modelName;
     }
+    const correctedVersion = savedModelList.filter(
+      (models) =>
+        models.substring(0, models.length - 5) ===
+        modelName.substring(0, modelName.length - 5)
+    );
+    if (correctedVersion.length > 0) {
+      return correctedVersion[0];
+    }
+    console.log("model does not exist");
+    return null;
   };
 
-  const stopRecognize = async () => {
-    if (activeRecognizer && activeRecognizer.isListening()) {
-      await activeRecognizer.stopListening();
-    }
-  };
-
-  // healper fct
   const loadModel = async (modelName) => {
-    // dans le cas ou il y  a une mauvaise version ou qu'on oublie de mettre une version
-    if (!savedModelList.includes(modelName)) {
-      const savedModelListWithoutVersion = savedModelList.map((w) =>
-        w.substring(0, modelName.length - 5)
-      );
-      const modelNameWithoutVersion = modelName.substring(
-        0,
-        modelName.length - 5
-      );
-      if (savedModelListWithoutVersion.includes(modelNameWithoutVersion)) {
-        modelName = savedModelList.filter(
-          (models) =>
-            models.substring(0, models.length - 5) ===
-            modelName.substring(0, models.length - 5)
-        )[0];
-      }
-      // when the version is omitted we get it
-      else if (savedModelListWithoutVersion.includes(modelName)) {
-        modelName = savedModelList.filter(
-          (models) => models.substring(0, models.length - 5) === modelName
-        )[0];
-      } else {
-        console.log("Le modele n'existe pas ");
-        return;
-      }
-    }
     let transfRec;
-    const alreadyInCache = cachedModel.filter(
+    const alreadyCached = cachedModel.filter(
       (model) => model.name === modelName
     );
-    if (alreadyInCache.length > 0) {
-      transfRec = alreadyInCache[0].model;
+    if (alreadyCached.length > 0) {
+      transfRec = alreadyCached[0].model;
       console.log("model loaded from cache");
     } else {
       transfRec = recognizer.createTransfer(modelName);
@@ -183,63 +113,143 @@ export const RecognizerContextProvider = ({ children }) => {
       console.log("model loaded from indexedDb");
     }
     setActiveRecognizer(transfRec);
-    const words = await transfRec.wordLabels();
-    return { transfRec, words };
+    return transfRec;
   };
 
-  const startRecognize = async (
+  // unfinished timer logic <--------------------------------------------------
+  const recognize = async (
     modelName,
-    recognizeOneWord = false,
-    duree = 0,
-    frameSize = 500
+    duration = 10,
+    stopAtOneWord = true,
+    frameSize = 900
   ) => {
     const overlap = 1 - frameSize / 1000;
     if (overlap > 1 || overlap < 0) {
-      console.log("La valeur du paramettre frameSize est incorrect");
+      console.log("bad value for frameSize");
       return;
     }
-    if (duree < 0) {
-      console.log("La durée ne doit pas etre negatif");
+    if (duration < 3) {
+      console.log("duration must be at least 3 second");
       return;
     }
-    const { transfRec, words } = await loadModel(modelName);
-    if (words.length === 0) {
-      console.log("ce modele ne peut pas etre utilisé il ne possede aucun mot");
+    stopRecognize();
+    modelName = modelName.trim().toLowerCase();
+    modelName = checkName(modelName);
+    if (modelName === null) {
       return;
     }
-
+    const transfRec = await loadModel(modelName);
+    const words = transfRec.wordLabels();
+    setTimer(duration);
     transfRec.listen(
       ({ scores }) => {
-        const words = transfRec.wordLabels();
         scores = Array.from(scores).map((s, i) => ({
           score: s,
           word: words[i],
         }));
         scores.sort((s1, s2) => s2.score - s1.score);
-        setRecognizerResult([...recognizerResult, scores]);
-        if (recognizeOneWord) {
-          transfRec.stopListening(); //state are async so we can't use activeRecognizer
+        console.log(scores[0].word);
+        if (scores[0].word !== "_background_noise_") {
+          setRecognizerResult([...recognizerResult, scores[0].word]);
+        }
+        if (stopAtOneWord && scores[0].word !== "_background_noise_") {
+          transfRec.stopListening();
+          setTimer(0);
         }
       },
       {
         overlapFactor: overlap,
-        includeSpectrogram: true,
-        probabilityThreshold: 0.9,
+        probabilityThreshold: probabilityThreshold,
         invokeCallbackOnNoiseAndUnknown: true,
       }
     );
-    if (duree > 0 && !recognizeOneWord) {
-      setTimeout(() => {
-        stopRecognize();
-      }, duree * 1000);
+  };
+
+  const stopRecognize = useCallback(async () => {
+    if (recognizer === undefined) {
+      console.log("Google Model not loaded yet");
+      return;
+    }
+    if (activeRecognizer && activeRecognizer.isListening()) {
+      await activeRecognizer.stopListening();
+      setTimer(0);
+    }
+  }, [activeRecognizer, recognizer]);
+
+  //clearTimeOut <-------------------------------------------------
+  useEffect(() => {
+    if (timer === 0) {
+      return;
+    }
+    const ref = setTimeout(() => {
+      stopRecognize();
+    }, timer * 1000);
+    return () => {
+      setTimer(0);
+      clearTimeout(ref);
+    };
+  }, [timer, stopRecognize]);
+
+  const createModel = async (modelName) => {
+    let transfRec;
+    modelName = `${modelName} v001`;
+
+    const alreadyCached = cachedModel.filter(
+      (model) => model.name === modelName
+    );
+    if (alreadyCached.length > 0) {
+      transfRec = alreadyCached[0].model;
+      console.log("model created from cache");
+    } else {
+      transfRec = recognizer.createTransfer(modelName);
+      setCachedModel([...cachedModel, { name: modelName, model: transfRec }]);
+      console.log("model created");
+    }
+    setActiveRecognizer(transfRec);
+    setCanModify(true);
+    setModelName(modelName);
+    try {
+      const words = transfRec.wordLabels();
+      setModelWord(words);
+      setCountExamples(await transfRec.countExamples());
+      setUnusedSavedWords(savedWords.filter((word) => !words.includes(word)));
+    } catch (err) {
+      setModelWord(["_background_noise_"]);
+      setUnusedSavedWords(
+        savedWords.filter((word) => word !== "_background_noise_")
+      );
+      if (savedWords.includes("_background_noise_")) {
+        await localforage.getItem("_background_noise_", (err, value) => {
+          if (err) {
+            console.log("can't load '_background_noise_'");
+          }
+          transfRec.loadExamples(value, false);
+        });
+        setCountExamples(await transfRec.countExamples());
+      }
     }
   };
 
-  const modifyModel = (name) => {
-    name = name.trim().toLowerCase();
-    setCanModify(false);
-    setModelName(name);
-    initialLoad(name);
+  const modifyModel = async (modelName) => {
+    if (recognizer === undefined) {
+      console.log("Google Model not loaded yet");
+      return;
+    }
+    modelName = modelName.trim().toLowerCase();
+    const alreadyExist = checkName(modelName);
+    if (alreadyExist === null && modelName.length >= 3) {
+      createModel(modelName);
+    } else if (alreadyExist === null && modelName.length < 3) {
+      console.log("Model Name too short");
+      return;
+    } else {
+      const transfRec = await loadModel(alreadyExist);
+      setCanModify(false);
+      setModelName(alreadyExist);
+      const words = await transfRec.wordLabels();
+      setModelWord(words);
+      setUnusedSavedWords(savedWords.filter((word) => !words.includes(word)));
+    }
     setOpenModal(true);
   };
 
@@ -247,6 +257,9 @@ export const RecognizerContextProvider = ({ children }) => {
     setModelName("");
     setOpenModal(false);
     setCanModify(false);
+    setModelWord([]);
+    setCountExamples([]);
+    setInputWord("");
   };
 
   const deleteModel = async () => {
@@ -279,12 +292,11 @@ export const RecognizerContextProvider = ({ children }) => {
         await SpeechCommands.deleteSavedTransferModel(oldModelName);
       } catch (err) {
         console.log(err);
-        console.log("Delete model error");
+        console.log("Delete old model error");
       }
     }
     loadSavedModelsAndWords();
   };
-
   const collectExample = async (word) => {
     if (!canModify) {
       return;
@@ -296,7 +308,65 @@ export const RecognizerContextProvider = ({ children }) => {
       console.log(err);
     }
   };
+  const addWord = async () => {
+    if (!canModify) {
+      return;
+    }
+    const word = inputWord.trim().toLowerCase();
+    setInputWord("");
+    if (word.length === 0) {
+      console.log("a word can't be empty string");
+      return;
+    } else if (modelWord.includes(word)) {
+      return; // it already exist so do nothing
+    } else if (savedWords.includes(word)) {
+      await localforage.getItem(word, (err, value) => {
+        if (err) {
+          console.log(err);
+        }
+        activeRecognizer.loadExamples(value, false);
+      });
+      setUnusedSavedWords(unusedSavedWords.filter((w) => w !== word));
+      setModelWord([...modelWord, word]);
+      setCountExamples(await activeRecognizer.countExamples());
+      return;
+    } else {
+      setModelWord([...modelWord, word]);
+    }
+  };
+  const tranfertWord = async (word) => {
+    if (!canModify) {
+      return;
+    }
+    await localforage.getItem(word, (err, value) => {
+      if (err) {
+        console.log("can't add the word");
+      }
+      activeRecognizer.loadExamples(value, false);
+    });
+    setUnusedSavedWords(unusedSavedWords.filter((w) => w !== word));
+    setModelWord([...modelWord, word]);
+    setCountExamples(await activeRecognizer.countExamples());
+  };
+  const removeWord = async (word) => {
+    if (!canModify) {
+      return;
+    }
 
+    setModelWord(modelWord.filter((w) => w !== word));
+    try {
+      const datasetOfWord = activeRecognizer.getExamples(word);
+      for (let index in datasetOfWord) {
+        await activeRecognizer.removeExample(datasetOfWord[index].uid);
+      }
+      if (savedWords.includes(word)) {
+        setUnusedSavedWords([...unusedSavedWords, word]);
+      }
+    } catch (err) {
+      console.log(err);
+      throw new Error("ERREUR delete word");
+    }
+  };
   const saveModel = async () => {
     if (!canModify) {
       return;
@@ -313,7 +383,7 @@ export const RecognizerContextProvider = ({ children }) => {
         },
       });
       await activeRecognizer.save();
-      // dans le cas ou il y a des mot sans exemple il seront enlever
+      // dans le cas ou il y a des mot sans exemple ils seront enlevé
       const wordList = activeRecognizer.wordLabels();
       setModelWord(wordList);
       for (let word of wordList) {
@@ -342,68 +412,6 @@ export const RecognizerContextProvider = ({ children }) => {
       console.log(err);
     }
   };
-
-  const addWord = async () => {
-    if (!canModify) {
-      return;
-    }
-    const word = inputWord.trim().toLowerCase();
-    setInputWord("");
-    if (word.length === 0) {
-      throw new Error("a word can't be empty string");
-    } else if (modelWord.includes(word)) {
-      return; // it already exist so do nothing
-    } else if (savedWords.includes(word)) {
-      await localforage.getItem(word, (err, value) => {
-        if (err) {
-          console.log(err);
-        }
-        activeRecognizer.loadExamples(value, false);
-      });
-      setUnusedSavedWords(unusedSavedWords.filter((w) => w !== word));
-      setModelWord([...modelWord, word]);
-      setCountExamples(await activeRecognizer.countExamples());
-      return;
-    } else {
-      setModelWord([...modelWord, word]);
-    }
-  };
-
-  const tranfertWord = async (word) => {
-    if (!canModify) {
-      return;
-    }
-    await localforage.getItem(word, (err, value) => {
-      if (err) {
-        throw new Error("can't add the word");
-      }
-      activeRecognizer.loadExamples(value, false);
-    });
-    setUnusedSavedWords(unusedSavedWords.filter((w) => w !== word));
-    setModelWord([...modelWord, word]);
-    setCountExamples(await activeRecognizer.countExamples());
-  };
-
-  const removeWord = async (word) => {
-    if (!canModify) {
-      return;
-    }
-
-    setModelWord(modelWord.filter((w) => w !== word));
-    try {
-      const datasetOfWord = activeRecognizer.getExamples(word);
-      for (let index in datasetOfWord) {
-        await activeRecognizer.removeExample(datasetOfWord[index].uid);
-      }
-      if (savedWords.includes(word)) {
-        setUnusedSavedWords([...unusedSavedWords, word]);
-      }
-    } catch (err) {
-      console.log(err);
-      throw new Error("ERREUR delete word");
-    }
-  };
-
   const enableModify = async () => {
     if (canModify) {
       return;
@@ -420,31 +428,51 @@ export const RecognizerContextProvider = ({ children }) => {
       0,
       modelName.length - 5
     )} v${version}`;
+    console.log(newModelName);
     const wordsList = modelWord;
     setModelName(newModelName);
-    const transfRec = await initialLoad(newModelName);
-    setUnusedSavedWords(unusedSavedWords.filter((w) => !wordsList.includes(w)));
-    for (let word of wordsList) {
-      await localforage.getItem(word, (err, value) => {
-        if (err) {
-          console.log(err);
-        }
-        console.log(`${word} loaded`);
-        transfRec.loadExamples(value, false);
-      });
+    setCanModify(true);
+    let transfRec;
+    const alreadyCached = cachedModel.filter(
+      (model) => model.name === newModelName
+    );
+    if (alreadyCached.length > 0) {
+      transfRec = alreadyCached[0].model;
+      console.log("model loaded from cache");
+      const words = await transfRec.wordLabels();
+      setModelWord(words);
+      setCountExamples(await transfRec.countExamples());
+      setUnusedSavedWords(savedWords.filter((w) => !words.includes(w)));
+    } else {
+      transfRec = recognizer.createTransfer(newModelName);
+      setCachedModel([
+        ...cachedModel,
+        { name: newModelName, model: transfRec },
+      ]);
+      console.log("model created");
+      setUnusedSavedWords(savedWords.filter((w) => !wordsList.includes(w)));
+      for (let word of wordsList) {
+        await localforage.getItem(word, (err, value) => {
+          if (err) {
+            console.log(err);
+          }
+          console.log(`${word} loaded`);
+          transfRec.loadExamples(value, false);
+        });
+      }
+      setActiveRecognizer(transfRec);
+      setModelWord(await transfRec.wordLabels());
+      setCountExamples(await transfRec.countExamples());
     }
-    setModelWord(await transfRec.wordLabels());
-    setCountExamples(await transfRec.countExamples());
   };
 
   const value = {
-    startRecognize,
-    stopRecognize,
-    recognizerResult,
-    savedModelList,
+    recognize,
     modifyModel,
+    savedModelList,
+    recognizerResult,
+    stopRecognize,
   };
-
   return (
     <RecognizerContext.Provider value={value}>
       {children}

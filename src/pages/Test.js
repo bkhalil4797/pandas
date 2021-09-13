@@ -1,26 +1,16 @@
 import React from "react";
-import { useRecognizer } from "../context/recognizerContext";
+import { useRecognizer } from "../context/speechCommand";
 
 export const Test = () => {
-  const {
-    modifyModel,
-    startRecognize,
-    oneRecognize,
-    stopRecognize,
-    recognizerResult,
-  } = useRecognizer();
+  const { modifyModel, recognize, stopRecognize, recognizerResult } =
+    useRecognizer();
   return (
     <>
       <h1>test</h1>
-      <button onClick={() => modifyModel("azer")}>create</button>
-      <button onClick={() => modifyModel("global v003")}>modify</button>
-      <button onClick={() => startRecognize("global v003")}>
-        startRecognize
-      </button>
-      <button onClick={() => oneRecognize("global v003")}>oneRecognize</button>
-      <button onClick={() => stopRecognize("global v003")}>
-        stopRecognize
-      </button>
+      <button onClick={() => modifyModel("abc")}>create</button>
+      <button onClick={() => modifyModel("azerty")}>modify</button>
+      <button onClick={() => recognize("azerty")}>startRecognize</button>
+      <button onClick={() => stopRecognize()}>stopRecognize</button>
       {JSON.stringify(recognizerResult)}
     </>
   );

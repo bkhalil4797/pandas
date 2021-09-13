@@ -63,12 +63,16 @@ export const RecognizerContextProvider = ({ children }) => {
     if (modelName === "") {
       return;
     }
+    console.log(modelName);
+
     // if bad model name we correct it or if it doesn't exist we create it
     // bad name mean incorrect version or the version is ommited
     if (!savedModelList.includes(modelName)) {
       const savedModelListWithoutVersion = savedModelList.map((w) =>
-        w.substring(0, modelName.length - 5)
+        w.substring(0, w.length - 5)
       );
+      console.log(savedModelListWithoutVersion);
+
       // wrong version so we auto update version if we got the wrong version exemple like when we get an old version
       // when the version is omitted we get it
       if (savedModelListWithoutVersion.includes(modelName)) {
@@ -80,13 +84,16 @@ export const RecognizerContextProvider = ({ children }) => {
         modelName = savedModelList.filter(
           (models) => models.substring(0, models.length - 5) === modelName
         )[0];
+        console.log(modelName);
 
-        return initialLoad(modelName);
+        initialLoad(modelName);
+        return;
       }
       // we load the model since it exist in indexedDb
       else {
         let transfRec;
         const newName = `${modelName} v001`;
+        setModelName(newName);
         const alreadyInCache = cachedModel.filter(
           (model) => model.name === newName
         );
@@ -237,6 +244,10 @@ export const RecognizerContextProvider = ({ children }) => {
   };
 
   const modifyModel = (name) => {
+    if (recognizer === null) {
+      console.log("attendez le chargement du modele de google");
+      return;
+    }
     name = name.trim().toLowerCase();
     setCanModify(false);
     setModelName(name);
@@ -421,6 +432,7 @@ export const RecognizerContextProvider = ({ children }) => {
       0,
       modelName.length - 5
     )} v${version}`;
+    console.log(newModelName);
     const wordsList = modelWord;
     setModelName(newModelName);
     const transfRec = await initialLoad(newModelName);
