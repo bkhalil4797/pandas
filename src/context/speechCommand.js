@@ -99,6 +99,10 @@ export const RecognizerContextProvider = ({ children }) => {
   };
 
   const loadModel = async (modelName) => {
+    if (recognizer === undefined) {
+      console.log("wait google model to load");
+      return;
+    }
     let transfRec;
     const alreadyCached = cachedModel.filter(
       (model) => model.name === modelName
@@ -121,7 +125,7 @@ export const RecognizerContextProvider = ({ children }) => {
     modelName,
     duration = 10,
     stopAtOneWord = true,
-    frameSize = 900
+    frameSize = 500
   ) => {
     const overlap = 1 - frameSize / 1000;
     if (overlap > 1 || overlap < 0) {
@@ -132,37 +136,42 @@ export const RecognizerContextProvider = ({ children }) => {
       console.log("duration must be at least 3 second");
       return;
     }
-    stopRecognize();
+    await stopRecognize();
     modelName = modelName.trim().toLowerCase();
     modelName = checkName(modelName);
     if (modelName === null) {
       return;
     }
-    const transfRec = await loadModel(modelName);
-    const words = transfRec.wordLabels();
-    setTimer(duration);
-    transfRec.listen(
-      ({ scores }) => {
-        scores = Array.from(scores).map((s, i) => ({
-          score: s,
-          word: words[i],
-        }));
-        scores.sort((s1, s2) => s2.score - s1.score);
-        console.log(scores[0].word);
-        if (scores[0].word !== "_background_noise_") {
+    console.log(activeRecognizer && activeRecognizer.isListening());
+    try {
+      const transfRec = await loadModel(modelName);
+      const words = transfRec.wordLabels();
+      setTimer(duration);
+      transfRec.listen(
+        ({ scores }) => {
+          scores = Array.from(scores).map((s, i) => ({
+            score: s,
+            word: words[i],
+          }));
+          scores.sort((s1, s2) => s2.score - s1.score);
+          console.log(scores[0].word);
           setRecognizerResult([...recognizerResult, scores[0].word]);
+
+          if (stopAtOneWord) {
+            transfRec.stopListening();
+            setTimer(0);
+          }
+        },
+        {
+          overlapFactor: overlap,
+          suppressionTimeMillis: 1000, //Amount to time in ms to suppress recognizer after a word is recognized.
+          probabilityThreshold: probabilityThreshold,
+          invokeCallbackOnNoiseAndUnknown: false, // Invoke the callback for background noise and unknown.
         }
-        if (stopAtOneWord && scores[0].word !== "_background_noise_") {
-          transfRec.stopListening();
-          setTimer(0);
-        }
-      },
-      {
-        overlapFactor: overlap,
-        probabilityThreshold: probabilityThreshold,
-        invokeCallbackOnNoiseAndUnknown: true,
-      }
-    );
+      );
+    } catch (err) {
+      console.log(err);
+    }
   };
 
   const stopRecognize = useCallback(async () => {
@@ -201,9 +210,13 @@ export const RecognizerContextProvider = ({ children }) => {
       transfRec = alreadyCached[0].model;
       console.log("model created from cache");
     } else {
-      transfRec = recognizer.createTransfer(modelName);
-      setCachedModel([...cachedModel, { name: modelName, model: transfRec }]);
-      console.log("model created");
+      try {
+        transfRec = recognizer.createTransfer(modelName);
+        setCachedModel([...cachedModel, { name: modelName, model: transfRec }]);
+        console.log("model created");
+      } catch (err) {
+        console.log(err);
+      }
     }
     setActiveRecognizer(transfRec);
     setCanModify(true);
@@ -214,19 +227,22 @@ export const RecognizerContextProvider = ({ children }) => {
       setCountExamples(await transfRec.countExamples());
       setUnusedSavedWords(savedWords.filter((word) => !words.includes(word)));
     } catch (err) {
-      setModelWord(["_background_noise_"]);
+      const initialWords = ["_background_noise_", "_unknown_"];
+      setModelWord(initialWords);
       setUnusedSavedWords(
         savedWords.filter((word) => word !== "_background_noise_")
       );
-      if (savedWords.includes("_background_noise_")) {
-        await localforage.getItem("_background_noise_", (err, value) => {
-          if (err) {
-            console.log("can't load '_background_noise_'");
-          }
-          transfRec.loadExamples(value, false);
-        });
-        setCountExamples(await transfRec.countExamples());
+      for (const word of initialWords) {
+        if (savedWords.includes(word)) {
+          await localforage.getItem(word, (err, value) => {
+            if (err) {
+              console.log(`can't load ${word}`);
+            }
+            transfRec.loadExamples(value, false);
+          });
+        }
       }
+      setCountExamples(transfRec.countExamples());
     }
   };
 
@@ -243,12 +259,17 @@ export const RecognizerContextProvider = ({ children }) => {
       console.log("Model Name too short");
       return;
     } else {
-      const transfRec = await loadModel(alreadyExist);
-      setCanModify(false);
-      setModelName(alreadyExist);
-      const words = await transfRec.wordLabels();
-      setModelWord(words);
-      setUnusedSavedWords(savedWords.filter((word) => !words.includes(word)));
+      try {
+        const transfRec = await loadModel(alreadyExist);
+        console.log(transfRec);
+        setCanModify(false);
+        setModelName(alreadyExist);
+        const words = transfRec.wordLabels();
+        setModelWord(words);
+        setUnusedSavedWords(savedWords.filter((word) => !words.includes(word)));
+      } catch (err) {
+        console.log(err);
+      }
     }
     setOpenModal(true);
   };
@@ -295,7 +316,7 @@ export const RecognizerContextProvider = ({ children }) => {
         console.log("Delete old model error");
       }
     }
-    loadSavedModelsAndWords();
+    await loadSavedModelsAndWords();
   };
   const collectExample = async (word) => {
     if (!canModify) {
@@ -303,7 +324,7 @@ export const RecognizerContextProvider = ({ children }) => {
     }
     try {
       await activeRecognizer.collectExample(word);
-      setCountExamples(await activeRecognizer.countExamples());
+      setCountExamples(activeRecognizer.countExamples());
     } catch (err) {
       console.log(err);
     }
@@ -320,15 +341,13 @@ export const RecognizerContextProvider = ({ children }) => {
     } else if (modelWord.includes(word)) {
       return; // it already exist so do nothing
     } else if (savedWords.includes(word)) {
-      await localforage.getItem(word, (err, value) => {
-        if (err) {
-          console.log(err);
-        }
-        activeRecognizer.loadExamples(value, false);
-      });
+      await localforage
+        .getItem(word)
+        .then((value) => activeRecognizer.loadExamples(value, false))
+        .catch((err) => console.log(err));
       setUnusedSavedWords(unusedSavedWords.filter((w) => w !== word));
       setModelWord([...modelWord, word]);
-      setCountExamples(await activeRecognizer.countExamples());
+      setCountExamples(activeRecognizer.countExamples());
       return;
     } else {
       setModelWord([...modelWord, word]);
@@ -346,7 +365,8 @@ export const RecognizerContextProvider = ({ children }) => {
     });
     setUnusedSavedWords(unusedSavedWords.filter((w) => w !== word));
     setModelWord([...modelWord, word]);
-    setCountExamples(await activeRecognizer.countExamples());
+    setCountExamples(activeRecognizer.countExamples());
+    console.log(activeRecognizer);
   };
   const removeWord = async (word) => {
     if (!canModify) {
@@ -387,8 +407,10 @@ export const RecognizerContextProvider = ({ children }) => {
       const wordList = activeRecognizer.wordLabels();
       setModelWord(wordList);
       for (let word of wordList) {
-        const serialized = activeRecognizer.serializeExamples(word);
-        localforage.setItem(word, serialized).then(console.log(`${word} done`));
+        activeRecognizer
+          .serializeExamples(word)
+          .then((serialized) => localforage.setItem(word, serialized))
+          .then(console.log(`${word} done`));
       }
       // then if we modify a model we will delete the old since we have this now
       let version = Number(
@@ -406,7 +428,7 @@ export const RecognizerContextProvider = ({ children }) => {
           0,
           modelName.length - 5
         )} v${version}`;
-        deleteModel(oldModelName);
+        await deleteModel(oldModelName);
       }
     } catch (err) {
       console.log(err);
@@ -428,10 +450,8 @@ export const RecognizerContextProvider = ({ children }) => {
       0,
       modelName.length - 5
     )} v${version}`;
-    console.log(newModelName);
-    const wordsList = modelWord;
+    const wordsList = activeRecognizer.wordLabels();
     setModelName(newModelName);
-    setCanModify(true);
     let transfRec;
     const alreadyCached = cachedModel.filter(
       (model) => model.name === newModelName
@@ -439,9 +459,9 @@ export const RecognizerContextProvider = ({ children }) => {
     if (alreadyCached.length > 0) {
       transfRec = alreadyCached[0].model;
       console.log("model loaded from cache");
-      const words = await transfRec.wordLabels();
+      const words = transfRec.wordLabels();
       setModelWord(words);
-      setCountExamples(await transfRec.countExamples());
+      setCountExamples(transfRec.countExamples());
       setUnusedSavedWords(savedWords.filter((w) => !words.includes(w)));
     } else {
       transfRec = recognizer.createTransfer(newModelName);
@@ -452,18 +472,17 @@ export const RecognizerContextProvider = ({ children }) => {
       console.log("model created");
       setUnusedSavedWords(savedWords.filter((w) => !wordsList.includes(w)));
       for (let word of wordsList) {
-        await localforage.getItem(word, (err, value) => {
-          if (err) {
-            console.log(err);
-          }
-          console.log(`${word} loaded`);
-          transfRec.loadExamples(value, false);
-        });
+        await localforage
+          .getItem(word)
+          .then((value) => transfRec.loadExamples(value, false))
+          .catch((err) => console.log(err));
       }
-      setActiveRecognizer(transfRec);
-      setModelWord(await transfRec.wordLabels());
-      setCountExamples(await transfRec.countExamples());
+      setModelWord(transfRec.wordLabels());
+      setCountExamples(transfRec.countExamples());
     }
+    setCanModify(true);
+    setActiveRecognizer(transfRec);
+    console.log(transfRec);
   };
 
   const value = {
@@ -517,23 +536,48 @@ export const RecognizerContextProvider = ({ children }) => {
               <div>
                 <p>Mot du modele</p>
                 {modelWord.length > 0 ? (
-                  modelWord.map((word) => (
-                    <div key={word}>
-                      <Button
-                        variant="outlined"
-                        onClick={() => collectExample(word)}
-                        disabled={!canModify}
-                      >
-                        {word} ({countExamples[word] ? countExamples[word] : 0})
-                      </Button>
-                      <Button
-                        onClick={() => removeWord(word)}
-                        disabled={!canModify}
-                      >
-                        <HighlightOffIcon />
-                      </Button>
-                    </div>
-                  ))
+                  modelWord.map((word) =>
+                    word === "_unknown_" ? (
+                      <div key={word}>
+                        <Button
+                          variant="outlined"
+                          onClick={() => collectExample(word)}
+                          disabled={!canModify}
+                        >
+                          inconnu (
+                          {countExamples[word] ? countExamples[word] : 0})
+                        </Button>
+                      </div>
+                    ) : word === "_background_noise_" ? (
+                      <div key={word}>
+                        <Button
+                          variant="outlined"
+                          onClick={() => collectExample(word)}
+                          disabled={!canModify}
+                        >
+                          bruit de fond (
+                          {countExamples[word] ? countExamples[word] : 0})
+                        </Button>
+                      </div>
+                    ) : (
+                      <div key={word}>
+                        <Button
+                          variant="outlined"
+                          onClick={() => collectExample(word)}
+                          disabled={!canModify}
+                        >
+                          {word} (
+                          {countExamples[word] ? countExamples[word] : 0})
+                        </Button>
+                        <Button
+                          onClick={() => removeWord(word)}
+                          disabled={!canModify}
+                        >
+                          <HighlightOffIcon />
+                        </Button>
+                      </div>
+                    )
+                  )
                 ) : (
                   <p>Aucun mot existant</p>
                 )}
