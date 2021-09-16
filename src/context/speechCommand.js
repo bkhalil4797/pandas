@@ -22,7 +22,6 @@ import CancelOutlinedIcon from "@material-ui/icons/CancelOutlined";
 const RecognizerContext = createContext();
 export const useRecognizer = () => useContext(RecognizerContext);
 
-const UNKNOWN_TAG = "_unknown_";
 const epochs = 50;
 const probabilityThreshold = 0.9;
 
@@ -125,6 +124,7 @@ export const RecognizerContextProvider = ({ children }) => {
     modelName,
     duration = 10,
     stopAtOneWord = true,
+    suppressionTimeMillis = 500,
     frameSize = 500
   ) => {
     const overlap = 1 - frameSize / 1000;
@@ -164,7 +164,7 @@ export const RecognizerContextProvider = ({ children }) => {
         },
         {
           overlapFactor: overlap,
-          suppressionTimeMillis: 1000, //Amount to time in ms to suppress recognizer after a word is recognized.
+          suppressionTimeMillis: suppressionTimeMillis, //Amount to time in ms to suppress recognizer after a word is recognized.
           probabilityThreshold: probabilityThreshold,
           invokeCallbackOnNoiseAndUnknown: false, // Invoke the callback for background noise and unknown.
         }
@@ -290,6 +290,7 @@ export const RecognizerContextProvider = ({ children }) => {
     if (savedModelList.includes(modelName)) {
       try {
         await SpeechCommands.deleteSavedTransferModel(modelName);
+        closeModifyModel();
       } catch (err) {
         console.log(err);
         console.log("Delete model error");
@@ -407,16 +408,16 @@ export const RecognizerContextProvider = ({ children }) => {
       const wordList = activeRecognizer.wordLabels();
       setModelWord(wordList);
       for (let word of wordList) {
-        activeRecognizer
-          .serializeExamples(word)
-          .then((serialized) => localforage.setItem(word, serialized))
-          .then(console.log(`${word} done`));
+        const serialized = activeRecognizer.serializeExamples(word);
+        localforage.setItem(word, serialized).then(console.log(`${word} done`));
       }
       // then if we modify a model we will delete the old since we have this now
       let version = Number(
         modelName.substring(modelName.length - 3, modelName.length)
       );
       if (version === 1) {
+        await loadSavedModelsAndWords();
+        closeModifyModel();
         return;
       } else {
         version = version - 1;

@@ -17,7 +17,7 @@ export const Test = () => {
       <h1>test</h1>
       <button onClick={() => modifyModel("abcde")}>create</button>
       <button onClick={() => modifyModel("azerty")}>modify</button>
-      <button onClick={() => recognize("abcd")}>startRecognize</button>
+      <button onClick={() => recognize("abcde")}>startRecognize</button>
       <button onClick={() => stopRecognize()}>stopRecognize</button>
       <button onClick={() => handleClick()}>test</button>
       {JSON.stringify(recognizerResult)}
