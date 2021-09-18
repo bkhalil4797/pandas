@@ -281,6 +281,7 @@ export default function RecognizerContextProvider({ children }) {
       setUnusedSavedWords(
         savedWords.filter((word) => word !== "_background_noise_")
       );
+      setUnusedRecommendedWords(recommendedWords);
       for (const word of initialWords) {
         if (savedWords.includes(word)) {
           await localforage.getItem(word, (err, value) => {
@@ -326,7 +327,6 @@ export default function RecognizerContextProvider({ children }) {
         setCanModify(false);
         setModelName(alreadyExist);
         const words = transfRec.wordLabels();
-        console.log(words);
         setModelWord(words);
         setUnusedSavedWords(savedWords.filter((word) => !words.includes(word)));
         setUnusedRecommendedWords(
@@ -413,7 +413,11 @@ export default function RecognizerContextProvider({ children }) {
         .catch((err) => console.log(err));
       setUnusedSavedWords(unusedSavedWords.filter((w) => w !== word));
       setModelWord([...modelWord, word]);
-      setCountExamples(activeRecognizer.countExamples());
+      try {
+        setCountExamples(activeRecognizer.countExamples());
+      } catch (err) {
+        console.log("again countExamples Error");
+      }
     } else {
       setModelWord([...modelWord, word]);
     }
@@ -432,7 +436,11 @@ export default function RecognizerContextProvider({ children }) {
     setUnusedRecommendedWords(unusedRecommendedWords.filter((w) => w !== word));
     setUnusedSavedWords(unusedSavedWords.filter((w) => w !== word));
     setModelWord([...modelWord, word]);
-    setCountExamples(activeRecognizer.countExamples());
+    try {
+      setCountExamples(activeRecognizer.countExamples());
+    } catch (err) {
+      console.log("again countExamples Error");
+    }
   };
   const removeWord = async (word) => {
     if (!canModify) {
@@ -532,13 +540,11 @@ export default function RecognizerContextProvider({ children }) {
     if (alreadyCached.length > 0) {
       transfRec = alreadyCached[0].model;
       console.log("model loaded from cache");
-      setModelWord(wordsList);
       try {
         setCountExamples(transfRec.countExamples());
       } catch (err) {
         console.log("countExamples error");
       }
-      setUnusedSavedWords(savedWords.filter((w) => !wordsList.includes(w)));
     } else {
       transfRec = recognizer.createTransfer(newModelName);
       setCachedModel([
@@ -546,16 +552,24 @@ export default function RecognizerContextProvider({ children }) {
         { name: newModelName, model: transfRec },
       ]);
       console.log("model created");
-      setUnusedSavedWords(savedWords.filter((w) => !wordsList.includes(w)));
       for (let word of wordsList) {
         await localforage
           .getItem(word)
           .then((value) => transfRec.loadExamples(value, false))
           .catch((err) => console.log(err));
       }
-      setModelWord(wordsList);
-      setCountExamples(transfRec.countExamples());
+      try {
+        setCountExamples(transfRec.countExamples());
+      } catch (err) {
+        console.log("again countExamples Error");
+      }
     }
+    const words = transfRec.wordLabels();
+    setModelWord(words);
+    setUnusedSavedWords(savedWords.filter((w) => !words.includes(w)));
+    setUnusedRecommendedWords(
+      recommendedWords.filter((w) => !words.includes(w))
+    );
     setCanModify(true);
     setActiveRecognizer(transfRec);
   };

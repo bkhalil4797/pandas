@@ -20,13 +20,15 @@ export const Test = () => {
     <>
       <h1>test</h1>
       <button
-        onClick={() =>
-          modifyModel("abcde", ["test", "rest", "fresh", "ige", "inttic"])
-        }
+        onClick={() => modifyModel("abcde", ["test", "rest", "fresh", "ige"])}
       >
         create
       </button>
-      <button onClick={() => modifyModel("azerty")}>modify</button>
+      <button
+        onClick={() => modifyModel("azerty", ["test", "rest", "fresh", "ige"])}
+      >
+        modify
+      </button>
       <button onClick={() => recognize("abcde", 100, false)}>
         startRecognize
       </button>
