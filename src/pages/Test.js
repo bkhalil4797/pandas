@@ -7,6 +7,7 @@ export const Test = () => {
     recognize,
     stopRecognize,
     recognizerResult,
+    openSavedWordModal,
     // activeRecognizer,
   } = React.useContext(RecognizerContext);
   // const count = React.useRef(0);
@@ -33,6 +34,7 @@ export const Test = () => {
         startRecognize
       </button>
       <button onClick={() => stopRecognize()}>stopRecognize</button>
+      <button onClick={() => openSavedWordModal()}>delete saved Words</button>
       {JSON.stringify(recognizerResult)}
     </>
   );

@@ -564,7 +564,9 @@ export default function RecognizerContextProvider({ children }) {
         console.log("again countExamples Error");
       }
     }
-    const words = transfRec.wordLabels();
+    let words = transfRec.wordLabels();
+    words = words.filter((word) => !wordsList.includes(word)); // on enleve les doublons
+    words = [...wordsList, ...words];
     setModelWord(words);
     setUnusedSavedWords(savedWords.filter((w) => !words.includes(w)));
     setUnusedRecommendedWords(
@@ -574,6 +576,32 @@ export default function RecognizerContextProvider({ children }) {
     setActiveRecognizer(transfRec);
   };
 
+  const [savedWordModal, setSavedWordModal] = useState(false);
+
+  function closesavedWordModal() {
+    setSavedWordModal(false);
+  }
+  function openSavedWordModal() {
+    setSavedWordModal(true);
+  }
+
+  async function deleteSavedWord(word) {
+    const confirm = window.confirm(
+      `Voulez vous vraiment supprimer le mot : "${word.toUpperCase()}"`
+    );
+    if (confirm) {
+      try {
+        await localforage.removeItem(word);
+        const savedWords = await localforage.keys();
+        setSavedWords(savedWords);
+      } catch (err) {
+        console.log("something happenned", err);
+      }
+    } else {
+      return;
+    }
+  }
+
   const value = {
     recognize,
     modifyModel,
@@ -581,6 +609,7 @@ export default function RecognizerContextProvider({ children }) {
     recognizerResult,
     stopRecognize,
     activeRecognizer,
+    openSavedWordModal,
   };
   return (
     <RecognizerContext.Provider value={value}>
@@ -748,6 +777,60 @@ export default function RecognizerContextProvider({ children }) {
               <CancelOutlinedIcon />
               Fermer
             </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        open={savedWordModal}
+        onClose={closesavedWordModal}
+        className="modal__Container"
+        s
+      >
+        <div className="modal__visible">
+          <div>
+            <h1>Liste des mots enregistrer</h1>
+          </div>
+          <div className="modifymodel__main">
+            <div className="modifymodel__words" style={{ width: "500px" }}>
+              <div>
+                <hr />
+                {savedWords.length > 0 ? (
+                  savedWords.map((word) =>
+                    word === "_unknown_" ? (
+                      <div key={word}>
+                        <Button
+                          variant="outlined"
+                          onClick={() => deleteSavedWord(word)}
+                        >
+                          inconnu
+                        </Button>
+                      </div>
+                    ) : word === "_background_noise_" ? (
+                      <div key={word}>
+                        <Button
+                          variant="outlined"
+                          onClick={() => deleteSavedWord(word)}
+                        >
+                          bruit de fond
+                        </Button>
+                      </div>
+                    ) : (
+                      <div key={word}>
+                        <Button
+                          variant="outlined"
+                          onClick={() => deleteSavedWord(word)}
+                        >
+                          {word}
+                        </Button>
+                      </div>
+                    )
+                  )
+                ) : (
+                  <p>Aucun mot existant</p>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </Modal>
