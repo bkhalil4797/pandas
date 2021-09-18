@@ -1,10 +1,4 @@
-import {
-  createContext,
-  useContext,
-  useState,
-  useEffect,
-  useCallback,
-} from "react";
+import { createContext, useState, useEffect, useCallback } from "react";
 import localforage from "localforage";
 // eslint-disable-next-line no-unused-vars
 import * as tf from "@tensorflow/tfjs";
@@ -19,26 +13,70 @@ import DeleteForeverIcon from "@material-ui/icons/DeleteForever";
 import SaveIcon from "@material-ui/icons/Save";
 import CancelOutlinedIcon from "@material-ui/icons/CancelOutlined";
 
-const RecognizerContext = createContext();
-export const useRecognizer = () => useContext(RecognizerContext);
+export const RecognizerContext = createContext();
 
 const epochs = 50;
 const probabilityThreshold = 0.9;
 
-export const RecognizerContextProvider = ({ children }) => {
+export default function RecognizerContextProvider({ children }) {
   const [recognizer, setRecognizer] = useState();
   const [savedModelList, setSavedModelList] = useState([]);
   const [cachedModel, setCachedModel] = useState([]);
   const [savedWords, setSavedWords] = useState([]);
+
+  const offlineLoadRecognizer = async () => {
+    try {
+      const metadata = {
+        words: [
+          "_background_noise_",
+          "_unknown_",
+          "down",
+          "eight",
+          "five",
+          "four",
+          "go",
+          "left",
+          "nine",
+          "no",
+          "one",
+          "right",
+          "seven",
+          "six",
+          "stop",
+          "three",
+          "two",
+          "up",
+          "yes",
+          "zero",
+        ],
+        frameSize: 232,
+      };
+      let recognizer = SpeechCommands.create(
+        "BROWSER_FFT",
+        null,
+        "indexeddb://speechCommandBaseModel",
+        metadata
+      );
+      await recognizer.ensureModelLoaded();
+      setRecognizer(recognizer);
+      console.log(`offline Load for speechCommandBaseModel`);
+    } catch (err) {
+      console.log(
+        "offline speechCommandBaseModel not found trying to load it from google server"
+      );
+      loadRecognizer();
+    }
+  };
 
   const loadRecognizer = async () => {
     try {
       let recognizer = SpeechCommands.create("BROWSER_FFT");
       await recognizer.ensureModelLoaded();
       setRecognizer(recognizer);
-      console.log(`Google Model Loaded`);
+      recognizer.model.save("indexeddb://speechCommandBaseModel");
+      console.log(`online Load success`);
     } catch (err) {
-      console.log("can't load google model", err);
+      console.log("online Load fail");
     }
   };
 
@@ -52,12 +90,13 @@ export const RecognizerContextProvider = ({ children }) => {
   useEffect(() => {
     localforage.config({
       driver: localforage.INDEXEDDB,
-      name: "SpeechCommand", // db name
-      storeName: "SavedWords", // table name
+      name: "SpeechCommand Dataset", // db name
+      storeName: "Saved Word", // table name
       description: "Speech Command Serialized Exemples", //table description
     });
-    loadRecognizer();
+    offlineLoadRecognizer();
     loadSavedModelsAndWords();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const [modelName, setModelName] = useState("");
@@ -98,10 +137,6 @@ export const RecognizerContextProvider = ({ children }) => {
   };
 
   const loadModel = async (modelName) => {
-    if (recognizer === undefined) {
-      console.log("wait google model to load");
-      return;
-    }
     let transfRec;
     const alreadyCached = cachedModel.filter(
       (model) => model.name === modelName
@@ -119,7 +154,6 @@ export const RecognizerContextProvider = ({ children }) => {
     return transfRec;
   };
 
-  // unfinished timer logic <--------------------------------------------------
   const recognize = async (
     modelName,
     duration = 10,
@@ -127,6 +161,10 @@ export const RecognizerContextProvider = ({ children }) => {
     suppressionTimeMillis = 500,
     frameSize = 500
   ) => {
+    if (recognizer === undefined) {
+      console.log("wait google model to load");
+      return;
+    }
     const overlap = 1 - frameSize / 1000;
     if (overlap > 1 || overlap < 0) {
       console.log("bad value for frameSize");
@@ -154,8 +192,8 @@ export const RecognizerContextProvider = ({ children }) => {
             word: words[i],
           }));
           scores.sort((s1, s2) => s2.score - s1.score);
-          console.log(scores[0].word);
-          setRecognizerResult([...recognizerResult, scores[0].word]);
+          console.log(recognizerResult);
+          setRecognizerResult([...recognizerResult, scores]);
 
           if (stopAtOneWord) {
             transfRec.stopListening();
@@ -185,7 +223,6 @@ export const RecognizerContextProvider = ({ children }) => {
     }
   }, [activeRecognizer, recognizer]);
 
-  //clearTimeOut <-------------------------------------------------
   useEffect(() => {
     if (timer === 0) {
       return;
@@ -222,9 +259,15 @@ export const RecognizerContextProvider = ({ children }) => {
     setCanModify(true);
     setModelName(modelName);
     try {
-      const words = transfRec.wordLabels();
+      let words = transfRec.wordLabels();
+      const initialWords = ["_background_noise_", "_unknown_"];
+      for (const word of initialWords) {
+        if (!words.includes(word)) {
+          words = [...words, word];
+        }
+      }
       setModelWord(words);
-      setCountExamples(await transfRec.countExamples());
+      setCountExamples(transfRec.countExamples());
       setUnusedSavedWords(savedWords.filter((word) => !words.includes(word)));
     } catch (err) {
       const initialWords = ["_background_noise_", "_unknown_"];
@@ -242,7 +285,13 @@ export const RecognizerContextProvider = ({ children }) => {
           });
         }
       }
-      setCountExamples(transfRec.countExamples());
+      try {
+        setCountExamples(transfRec.countExamples());
+      } catch (err) {
+        console.log(
+          "'_background_noise_' and  '_unknown_' examples not found "
+        );
+      }
     }
   };
 
@@ -265,6 +314,7 @@ export const RecognizerContextProvider = ({ children }) => {
         setCanModify(false);
         setModelName(alreadyExist);
         const words = transfRec.wordLabels();
+        console.log(words);
         setModelWord(words);
         setUnusedSavedWords(savedWords.filter((word) => !words.includes(word)));
       } catch (err) {
@@ -377,15 +427,15 @@ export const RecognizerContextProvider = ({ children }) => {
     setModelWord(modelWord.filter((w) => w !== word));
     try {
       const datasetOfWord = activeRecognizer.getExamples(word);
-      for (let index in datasetOfWord) {
-        await activeRecognizer.removeExample(datasetOfWord[index].uid);
-      }
+      console.log(datasetOfWord);
       if (savedWords.includes(word)) {
         setUnusedSavedWords([...unusedSavedWords, word]);
       }
+      for (let index in datasetOfWord) {
+        await activeRecognizer.removeExample(datasetOfWord[index].uid);
+      }
     } catch (err) {
       console.log(err);
-      throw new Error("ERREUR delete word");
     }
   };
   const saveModel = async () => {
@@ -462,7 +512,11 @@ export const RecognizerContextProvider = ({ children }) => {
       console.log("model loaded from cache");
       const words = transfRec.wordLabels();
       setModelWord(words);
-      setCountExamples(transfRec.countExamples());
+      try {
+        setCountExamples(transfRec.countExamples());
+      } catch (err) {
+        console.log("countExamples error");
+      }
       setUnusedSavedWords(savedWords.filter((w) => !words.includes(w)));
     } else {
       transfRec = recognizer.createTransfer(newModelName);
@@ -643,4 +697,4 @@ export const RecognizerContextProvider = ({ children }) => {
       </Modal>
     </RecognizerContext.Provider>
   );
-};
+}

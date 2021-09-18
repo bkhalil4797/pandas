@@ -13,10 +13,10 @@ import DeleteForeverIcon from "@material-ui/icons/DeleteForever";
 import SaveIcon from "@material-ui/icons/Save";
 import CancelOutlinedIcon from "@material-ui/icons/CancelOutlined";
 
-const RecognizerContext = createContext();
+export const RecognizerContext = createContext();
 export const useRecognizer = () => useContext(RecognizerContext);
 
-export const RecognizerContextProvider = ({ children }) => {
+export default function RecognizerContextProvider({ children }) {
   const [recognizer, setRecognizer] = useState();
   const [activeRecognizer, setActiveRecognizer] = useState();
   const [savedModelList, setSavedModelList] = useState([]);
@@ -560,4 +560,4 @@ export const RecognizerContextProvider = ({ children }) => {
       </Modal>
     </RecognizerContext.Provider>
   );
-};
+}
