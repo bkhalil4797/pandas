@@ -109,6 +109,9 @@ export default function RecognizerContextProvider({ children }) {
   const [recognizerResult, setRecognizerResult] = useState([]);
   const [inputWord, setInputWord] = useState("");
 
+  const [recommendedWords, setRecommendedWords] = useState([]);
+  const [unusedRecommendedWords, setUnusedRecommendedWords] = useState([]);
+
   const [timer, setTimer] = useState(0);
 
   const checkName = (modelName) => {
@@ -158,7 +161,7 @@ export default function RecognizerContextProvider({ children }) {
     modelName,
     duration = 10,
     stopAtOneWord = true,
-    suppressionTimeMillis = 500,
+    suppressionTimeMillis = 0,
     frameSize = 500
   ) => {
     if (recognizer === undefined) {
@@ -180,7 +183,6 @@ export default function RecognizerContextProvider({ children }) {
     if (modelName === null) {
       return;
     }
-    console.log(activeRecognizer && activeRecognizer.isListening());
     try {
       const transfRec = await loadModel(modelName);
       const words = transfRec.wordLabels();
@@ -192,7 +194,8 @@ export default function RecognizerContextProvider({ children }) {
             word: words[i],
           }));
           scores.sort((s1, s2) => s2.score - s1.score);
-          console.log(recognizerResult);
+          console.log(scores[0].word);
+
           setRecognizerResult([...recognizerResult, scores]);
 
           if (stopAtOneWord) {
@@ -204,7 +207,7 @@ export default function RecognizerContextProvider({ children }) {
           overlapFactor: overlap,
           suppressionTimeMillis: suppressionTimeMillis, //Amount to time in ms to suppress recognizer after a word is recognized.
           probabilityThreshold: probabilityThreshold,
-          invokeCallbackOnNoiseAndUnknown: false, // Invoke the callback for background noise and unknown.
+          invokeCallbackOnNoiseAndUnknown: true, // Invoke the callback for background noise and unknown.
         }
       );
     } catch (err) {
@@ -236,7 +239,7 @@ export default function RecognizerContextProvider({ children }) {
     };
   }, [timer, stopRecognize]);
 
-  const createModel = async (modelName) => {
+  const createModel = async (modelName, recommendedWords) => {
     let transfRec;
     modelName = `${modelName} v001`;
 
@@ -267,6 +270,9 @@ export default function RecognizerContextProvider({ children }) {
         }
       }
       setModelWord(words);
+      setUnusedRecommendedWords(
+        recommendedWords.filter((word) => !words.includes(word))
+      );
       setCountExamples(transfRec.countExamples());
       setUnusedSavedWords(savedWords.filter((word) => !words.includes(word)));
     } catch (err) {
@@ -295,28 +301,37 @@ export default function RecognizerContextProvider({ children }) {
     }
   };
 
-  const modifyModel = async (modelName) => {
+  const modifyModel = async (modelName, recommendedWords = []) => {
     if (recognizer === undefined) {
       console.log("Google Model not loaded yet");
       return;
     }
+    if (!Array.isArray(recommendedWords)) {
+      console.log(
+        "recommendedWords should be an array of strings ['firstWord','secondWord']"
+      );
+      return;
+    }
+    setRecommendedWords(recommendedWords);
     modelName = modelName.trim().toLowerCase();
     const alreadyExist = checkName(modelName);
     if (alreadyExist === null && modelName.length >= 3) {
-      createModel(modelName);
+      createModel(modelName, recommendedWords);
     } else if (alreadyExist === null && modelName.length < 3) {
       console.log("Model Name too short");
       return;
     } else {
       try {
         const transfRec = await loadModel(alreadyExist);
-        console.log(transfRec);
         setCanModify(false);
         setModelName(alreadyExist);
         const words = transfRec.wordLabels();
         console.log(words);
         setModelWord(words);
         setUnusedSavedWords(savedWords.filter((word) => !words.includes(word)));
+        setUnusedRecommendedWords(
+          recommendedWords.filter((word) => !words.includes(word))
+        );
       } catch (err) {
         console.log(err);
       }
@@ -399,10 +414,10 @@ export default function RecognizerContextProvider({ children }) {
       setUnusedSavedWords(unusedSavedWords.filter((w) => w !== word));
       setModelWord([...modelWord, word]);
       setCountExamples(activeRecognizer.countExamples());
-      return;
     } else {
       setModelWord([...modelWord, word]);
     }
+    setUnusedRecommendedWords(unusedRecommendedWords.filter((w) => w !== word));
   };
   const tranfertWord = async (word) => {
     if (!canModify) {
@@ -414,10 +429,10 @@ export default function RecognizerContextProvider({ children }) {
       }
       activeRecognizer.loadExamples(value, false);
     });
+    setUnusedRecommendedWords(unusedRecommendedWords.filter((w) => w !== word));
     setUnusedSavedWords(unusedSavedWords.filter((w) => w !== word));
     setModelWord([...modelWord, word]);
     setCountExamples(activeRecognizer.countExamples());
-    console.log(activeRecognizer);
   };
   const removeWord = async (word) => {
     if (!canModify) {
@@ -425,17 +440,24 @@ export default function RecognizerContextProvider({ children }) {
     }
 
     setModelWord(modelWord.filter((w) => w !== word));
+    if (recommendedWords.includes(word)) {
+      setUnusedRecommendedWords([...unusedRecommendedWords, word]);
+    }
+    if (savedWords.includes(word)) {
+      setUnusedSavedWords([...unusedSavedWords, word]);
+    }
     try {
       const datasetOfWord = activeRecognizer.getExamples(word);
-      console.log(datasetOfWord);
-      if (savedWords.includes(word)) {
-        setUnusedSavedWords([...unusedSavedWords, word]);
-      }
+
       for (let index in datasetOfWord) {
         await activeRecognizer.removeExample(datasetOfWord[index].uid);
       }
     } catch (err) {
-      console.log(err);
+      console.log(
+        "Error due to : No example of label '",
+        word,
+        "' exists in dataset"
+      );
     }
   };
   const saveModel = async () => {
@@ -510,14 +532,13 @@ export default function RecognizerContextProvider({ children }) {
     if (alreadyCached.length > 0) {
       transfRec = alreadyCached[0].model;
       console.log("model loaded from cache");
-      const words = transfRec.wordLabels();
-      setModelWord(words);
+      setModelWord(wordsList);
       try {
         setCountExamples(transfRec.countExamples());
       } catch (err) {
         console.log("countExamples error");
       }
-      setUnusedSavedWords(savedWords.filter((w) => !words.includes(w)));
+      setUnusedSavedWords(savedWords.filter((w) => !wordsList.includes(w)));
     } else {
       transfRec = recognizer.createTransfer(newModelName);
       setCachedModel([
@@ -532,12 +553,11 @@ export default function RecognizerContextProvider({ children }) {
           .then((value) => transfRec.loadExamples(value, false))
           .catch((err) => console.log(err));
       }
-      setModelWord(transfRec.wordLabels());
+      setModelWord(wordsList);
       setCountExamples(transfRec.countExamples());
     }
     setCanModify(true);
     setActiveRecognizer(transfRec);
-    console.log(transfRec);
   };
 
   const value = {
@@ -546,6 +566,7 @@ export default function RecognizerContextProvider({ children }) {
     savedModelList,
     recognizerResult,
     stopRecognize,
+    activeRecognizer,
   };
   return (
     <RecognizerContext.Provider value={value}>
@@ -587,7 +608,7 @@ export default function RecognizerContextProvider({ children }) {
               </Button>
             </div>
 
-            <div className="modifymodel__words">
+            <div className="modifymodel__words" style={{ width: "800px" }}>
               <div>
                 <p>Mot du modele</p>
                 {modelWord.length > 0 ? (
@@ -638,23 +659,44 @@ export default function RecognizerContextProvider({ children }) {
                 )}
               </div>
               {canModify && (
-                <div>
-                  <p>Ajouter un mot déja utilisé</p>
-                  {unusedSavedWords.length > 0 ? (
-                    unusedSavedWords.map((word) => (
-                      <div key={word}>
-                        <Button
-                          variant="outlined"
-                          onClick={() => tranfertWord(word)}
-                        >
-                          {word}
-                        </Button>
-                      </div>
-                    ))
-                  ) : (
-                    <p>Aucun mot enregistrer</p>
-                  )}
-                </div>
+                <>
+                  <div>
+                    <p>Mot Recommandé</p>
+                    <hr />
+                    {unusedRecommendedWords.length > 0 ? (
+                      unusedRecommendedWords.map((word) => (
+                        <div key={word}>
+                          <Button
+                            variant="outlined"
+                            onClick={() => tranfertWord(word)}
+                          >
+                            {word}
+                          </Button>
+                        </div>
+                      ))
+                    ) : (
+                      <p>Aucun mot recommandé</p>
+                    )}
+                  </div>
+                  <div>
+                    <p>Ajouter un mot déja utilisé</p>
+                    <hr />
+                    {unusedSavedWords.length > 0 ? (
+                      unusedSavedWords.map((word) => (
+                        <div key={word}>
+                          <Button
+                            variant="outlined"
+                            onClick={() => tranfertWord(word)}
+                          >
+                            {word}
+                          </Button>
+                        </div>
+                      ))
+                    ) : (
+                      <p>Aucun mot enregistrer</p>
+                    )}
+                  </div>
+                </>
               )}
             </div>
           </div>
