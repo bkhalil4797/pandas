@@ -7,14 +7,14 @@ export const Test = () => {
     recognize,
     stopRecognize,
     recognizerResult,
-    activeRecognizer,
+    // activeRecognizer,
   } = React.useContext(RecognizerContext);
-  const count = React.useRef(0);
-  React.useEffect(() => {
-    count.current = count.current + 1;
-    console.log(count.current);
-    console.log(activeRecognizer);
-  });
+  // const count = React.useRef(0);
+  // React.useEffect(() => {
+  //   count.current = count.current + 1;
+  //   console.log(count.current);
+  //   console.log(activeRecognizer);
+  // });
 
   return (
     <>
