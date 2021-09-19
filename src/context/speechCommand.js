@@ -12,8 +12,10 @@ import AssignmentTurnedInOutlinedIcon from "@material-ui/icons/AssignmentTurnedI
 import DeleteForeverIcon from "@material-ui/icons/DeleteForever";
 import SaveIcon from "@material-ui/icons/Save";
 import CancelOutlinedIcon from "@material-ui/icons/CancelOutlined";
+import LinearProgress from "@material-ui/core/LinearProgress";
 
 export const RecognizerContext = createContext();
+RecognizerContext.displayName = "Speech Command Context";
 
 const epochs = 50;
 const probabilityThreshold = 0.9;
@@ -109,6 +111,8 @@ export default function RecognizerContextProvider({ children }) {
   const [recognizerResult, setRecognizerResult] = useState([]);
   const [inputWord, setInputWord] = useState("");
 
+  const [displayProgressBar, setDisplayProgressBar] = useState(false);
+  const [progressBar, setProgressBar] = useState(0);
   const [recommendedWords, setRecommendedWords] = useState([]);
   const [unusedRecommendedWords, setUnusedRecommendedWords] = useState([]);
 
@@ -473,10 +477,13 @@ export default function RecognizerContextProvider({ children }) {
       return;
     }
     try {
+      setDisplayProgressBar(true);
+      setCanModify(false);
       await activeRecognizer.train({
         epochs,
         callback: {
           onEpochEnd: async (epoch, logs) => {
+            setProgressBar((epoch / epochs) * 100);
             console.log(
               `Epoch ${epoch}: loss=${logs.loss}, accuracy=${logs.acc}`
             );
@@ -484,6 +491,8 @@ export default function RecognizerContextProvider({ children }) {
         },
       });
       await activeRecognizer.save();
+      setDisplayProgressBar(false);
+      setProgressBar(0);
       // dans le cas ou il y a des mot sans exemple ils seront enlevé
       const wordList = activeRecognizer.wordLabels();
       setModelWord(wordList);
@@ -513,6 +522,9 @@ export default function RecognizerContextProvider({ children }) {
       }
     } catch (err) {
       console.log(err);
+      setCanModify(true);
+      setDisplayProgressBar(false);
+      setProgressBar(0);
     }
   };
   const enableModify = async () => {
@@ -608,7 +620,6 @@ export default function RecognizerContextProvider({ children }) {
     savedModelList,
     recognizerResult,
     stopRecognize,
-    activeRecognizer,
     openSavedWordModal,
   };
   return (
@@ -743,7 +754,11 @@ export default function RecognizerContextProvider({ children }) {
               )}
             </div>
           </div>
-
+          {displayProgressBar && (
+            <div style={{ margin: "10px" }}>
+              <LinearProgress variant="determinate" value={progressBar} />
+            </div>
+          )}
           <div className="modifymodel__footer">
             <Button
               variant="outlined"
@@ -769,11 +784,7 @@ export default function RecognizerContextProvider({ children }) {
               <SaveIcon />
               Enregistrer
             </Button>
-            <Button
-              variant="outlined"
-              disabled={!canModify}
-              onClick={closeModifyModel}
-            >
+            <Button variant="outlined" onClick={closeModifyModel}>
               <CancelOutlinedIcon />
               Fermer
             </Button>

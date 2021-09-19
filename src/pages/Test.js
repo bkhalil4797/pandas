@@ -8,34 +8,96 @@ export const Test = () => {
     stopRecognize,
     recognizerResult,
     openSavedWordModal,
-    // activeRecognizer,
+    savedModelList,
   } = React.useContext(RecognizerContext);
-  // const count = React.useRef(0);
-  // React.useEffect(() => {
-  //   count.current = count.current + 1;
-  //   console.log(count.current);
-  //   console.log(activeRecognizer);
-  // });
+
+  const [modelName, setModelName] = React.useState("");
+  const [recommendedWord, setRecommendedWords] = React.useState("");
+  const [selectedModel, setSelectedModel] = React.useState("");
 
   return (
     <>
-      <h1>test</h1>
-      <button
-        onClick={() => modifyModel("abcde", ["test", "rest", "fresh", "ige"])}
-      >
-        create
-      </button>
-      <button
-        onClick={() => modifyModel("azerty", ["test", "rest", "fresh", "ige"])}
-      >
-        modify
-      </button>
-      <button onClick={() => recognize("abcde", 100, false)}>
-        startRecognize
-      </button>
-      <button onClick={() => stopRecognize()}>stopRecognize</button>
-      <button onClick={() => openSavedWordModal()}>delete saved Words</button>
-      {JSON.stringify(recognizerResult)}
+      <div>
+        Mot Recommender sous la form de :
+        PremierMot,DeuxiemeMot,TroisiemeMot,.....
+        <input
+          value={recommendedWord}
+          onChange={(e) => setRecommendedWords(e.target.value.toLowerCase())}
+        />
+      </div>
+      <hr />
+
+      <div>
+        Creer un modele
+        <input
+          value={modelName}
+          onChange={(e) => setModelName(e.target.value)}
+        />
+        <button
+          onClick={() =>
+            modifyModel(
+              modelName,
+              recommendedWord.length === 0 ? [] : recommendedWord.split(",")
+            )
+          }
+        >
+          Creer
+        </button>
+      </div>
+      <hr />
+      <div>
+        Modifier un modele
+        <select
+          value={selectedModel}
+          onChange={(e) => setSelectedModel(e.target.value)}
+        >
+          <option value="0">Aucun modele disponible</option>
+
+          {savedModelList.map((model) => (
+            <option key={model} value={model}>
+              {model}
+            </option>
+          ))}
+        </select>
+        <button
+          onClick={() =>
+            modifyModel(
+              selectedModel,
+              recommendedWord.length === 0 ? [] : recommendedWord.split(",")
+            )
+          }
+        >
+          Modifier
+        </button>
+      </div>
+      <hr />
+      <div>
+        Modifier un modele
+        <select
+          value={selectedModel}
+          onChange={(e) => setSelectedModel(e.target.value)}
+        >
+          <option value="0">Aucun modele disponible</option>
+
+          {savedModelList.map((model) => (
+            <option key={model} value={model}>
+              {model}
+            </option>
+          ))}
+        </select>
+        <button onClick={() => recognize(selectedModel, 60, false)}>
+          start recognize
+        </button>
+        <button onClick={() => stopRecognize()}>stop recognize</button>
+      </div>
+      <hr />
+      <div>
+        <button onClick={() => openSavedWordModal()}>delete saved words</button>
+      </div>
+      <hr />
+      <div>
+        Resultat de la reconnaissance : {JSON.stringify(recognizerResult)}
+      </div>
     </>
   );
 };
