@@ -98,10 +98,8 @@ export const Test = () => {
       <div>
         Resultat de la reconnaissance :{" "}
         {recognizerResult.length > 0 &&
-          recognizerResult.map((resultArray) => (
-            <div key={JSON.stringify(resultArray)}>
-              {JSON.stringify(resultArray)}
-            </div>
+          recognizerResult.map((resultArray, index) => (
+            <div key={index}>{JSON.stringify(resultArray)}</div>
           ))}
       </div>
     </>
