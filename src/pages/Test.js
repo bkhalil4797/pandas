@@ -88,19 +88,24 @@ export const Test = () => {
             </option>
           ))}
         </select>
+        <br />
         timer (default 10sec)
         <input value={timer} onChange={(e) => setTimer(e.target.value)} />
+        <br />
         suppressionTimeMillis (google default 1000ms and 100ms for me)
         <input
           value={suppressionTimeMillis}
           onChange={(e) => setSuppressionTimeMillis(e.target.value)}
         />
-        frameSize (google default 500ms)
+        <br />
+        frameSize (google default 500ms) (min 0 and max 1000)
         <input
           value={frameSize}
           onChange={(e) => setFrameSize(e.target.value)}
         />
+        <br />
         "stopAtOneWord is always false for test purpose"
+        <br />
         <button
           onClick={() =>
             recognize(
@@ -125,7 +130,10 @@ export const Test = () => {
         Resultat de la reconnaissance :{" "}
         {recognizerResult.length > 0 &&
           recognizerResult.map((resultArray, index) => (
-            <div key={index}>{JSON.stringify(resultArray)}</div>
+            <div key={index}>
+              <br />
+              {JSON.stringify(resultArray)}
+            </div>
           ))}
       </div>
     </>

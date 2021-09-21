@@ -388,6 +388,7 @@ export default function RecognizerContextProvider({ children }) {
       }
     }
     await loadSavedModelsAndWords();
+    closeModifyModel();
   };
   const collectExample = async (word) => {
     if (!canModify) {
@@ -396,6 +397,7 @@ export default function RecognizerContextProvider({ children }) {
     try {
       await activeRecognizer.collectExample(word);
       setCountExamples(activeRecognizer.countExamples());
+      console.log(activeRecognizer.countExamples());
     } catch (err) {
       console.log(err);
     }
