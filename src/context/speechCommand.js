@@ -191,6 +191,7 @@ export default function RecognizerContextProvider({ children }) {
       const transfRec = await loadModel(modelName);
       const words = transfRec.wordLabels();
       setTimer(duration);
+      /* --------------- */ let result = [];
       transfRec.listen(
         ({ scores }) => {
           scores = Array.from(scores).map((s, i) => ({
@@ -199,8 +200,8 @@ export default function RecognizerContextProvider({ children }) {
           }));
           scores.sort((s1, s2) => s2.score - s1.score);
           console.log(scores[0].word);
-
-          setRecognizerResult([...recognizerResult, scores]);
+          /* --------------- */ result = [...result, scores];
+          /* --------------- */ setRecognizerResult(result);
 
           if (stopAtOneWord) {
             transfRec.stopListening();
