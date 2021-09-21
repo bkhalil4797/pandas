@@ -14,6 +14,9 @@ export const Test = () => {
   const [modelName, setModelName] = React.useState("");
   const [recommendedWord, setRecommendedWords] = React.useState("");
   const [selectedModel, setSelectedModel] = React.useState("");
+  const [timer, setTimer] = React.useState(10);
+  const [suppressionTimeMillis, setSuppressionTimeMillis] = React.useState(100);
+  const [frameSize, setFrameSize] = React.useState(500);
 
   return (
     <>
@@ -85,7 +88,30 @@ export const Test = () => {
             </option>
           ))}
         </select>
-        <button onClick={() => recognize(selectedModel, 60, false)}>
+        timer (default 10sec)
+        <input value={timer} onChange={(e) => setTimer(e.target.value)} />
+        suppressionTimeMillis (google default 1000ms and 100ms for me)
+        <input
+          value={suppressionTimeMillis}
+          onChange={(e) => setSuppressionTimeMillis(e.target.value)}
+        />
+        frameSize (google default 500ms)
+        <input
+          value={frameSize}
+          onChange={(e) => setFrameSize(e.target.value)}
+        />
+        "stopAtOneWord is always false for test purpose"
+        <button
+          onClick={() =>
+            recognize(
+              selectedModel,
+              timer,
+              false,
+              suppressionTimeMillis,
+              frameSize
+            )
+          }
+        >
           start recognize
         </button>
         <button onClick={() => stopRecognize()}>stop recognize</button>

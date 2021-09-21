@@ -165,7 +165,7 @@ export default function RecognizerContextProvider({ children }) {
     modelName,
     duration = 10,
     stopAtOneWord = true,
-    suppressionTimeMillis = 0,
+    suppressionTimeMillis = 100,
     frameSize = 500
   ) => {
     if (recognizer === undefined) {
